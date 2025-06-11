@@ -1,0 +1,317 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false)) 
+@page "/aftprocessor"
+
+@inject NavigationManager Navigation
+@inject ISessionTransactions sessionTransactions
+
+
+
+<h2>Process AFT Transaction</h2>
+
+<FormSection Title="Use Defaults" HelpText="">
+    <div class="row">
+        <div class="col d-flex p-3">
+            <div class="col-6">
+                <label class="form-check-label me-lg-5" for="aftOnly"><b>AFT Only:</b></label>
+            </div>
+            <div class="col-6 border d-flex justify-content-center align-items-center">
+                <input type="checkbox" @bind="aftOnly" class="form-check-input" id="aftOnly" />
+            </div>
+        </div>
+        <div class="col d-flex p-3">
+            <div class="col-6">
+                <label class="form-check-label me-lg-5" for="useDefaults"><b>Use Defaults:</b></label>
+            </div>
+            <div class="col-6 border d-flex justify-content-center align-items-center">
+                <input type="checkbox" @bind="IsChecked" @onclick="PopulateForm" class="form-check-input" id="useDefaults" />
+            </div>
+        </div>
+        <div class="col d-flex">
+            @if (IsChecked)
+            {
+                <button class="w-100 btn btn-primary btn-lg" @onclick="HandleValidSubmit">Submit for AFT</button>
+            }
+        </div>
+        <div class="col d-flex">
+            @if (error is not null)
+            {
+                <div class="col-6">
+                    <strong class="alert-danger">@error</strong>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Follow on Actions
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="merchantboarding">Create New Merchant</a></li>
+                        <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                    </ul>
+                </div>
+            }
+        </div>
+    </div>
+</FormSection>
+
+
+
+<EditForm Model="@aftRequestDto" OnValidSubmit="@HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <FormSection Title="AFT Information" HelpText="">
+        <div class="row align-items-start">
+            <div class="col d-flex">
+                <div class="col-5 m-1">
+                    <h5 class="mb-2"><b>Sender Information</b></h5>
+                    <hr class="my-4">
+                    <div>
+                        <label for="senderFirstName">Sender First Name</label>
+                        <InputText id="senderFirstName" @bind-Value="aftRequestDto!.SenderInformation!.FirstName" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="senderLastName">Sender Last Name</label>
+                        <InputText id="senderLastName" @bind-Value="aftRequestDto.SenderInformation.LastName" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="senderAddress1">Sender Address 1:</label>
+                        <InputText id="senderAddress1" @bind-Value="aftRequestDto.SenderInformation.Address1" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="senderAddress2">Sender Address 2:</label>
+                        <InputText id="senderAddress2" @bind-Value="aftRequestDto.SenderInformation.Address2" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="senderCity">Sender City</label>
+                        <InputText id="senderCity" @bind-Value="aftRequestDto.SenderInformation.Locality" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="senderState">Sender State</label>
+                        <InputText id="senderState" @bind-Value="aftRequestDto.SenderInformation.AdministrativeArea" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="senderCountry">Sender Country Code</label>
+                        <InputText id="senderCountry" @bind-Value="aftRequestDto.SenderInformation.CountryCode" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="referenceNumber">Reference Number</label>
+                        <InputText id="referenceNumber" @bind-Value="aftRequestDto.SenderInformation.ReferenceNumber" class="form-control" />
+                    </div>
+                    <div class="col-md-6 me-2">
+                        <label for="accountNumber" class="form-label">Debit card number</label>
+                        <InputText @bind-Value="aftRequestDto.PaymentInformation!.Card!.Number" class="form-control" id="accountNumber" placeholder="" />
+                    </div>
+                    <div class="d-flex">
+                        <div class="col-md-3 me-auto">
+                            <label for="cc-exp-month" class="form-label">Exp Month</label>
+                            <InputText @bind-Value="aftRequestDto.PaymentInformation!.Card!.ExpirationMonth" class="form-control" id="cc-exp-month" placeholder="" />
+                            <ValidationMessage For="() => aftRequestDto.PaymentInformation!.Card!.ExpirationMonth" />
+                        </div>
+                        <div class="col-md-3 me-auto">
+                            <label for="cc-exp-year" class="form-label">Exp Year</label>
+                            <InputText @bind-Value="aftRequestDto.PaymentInformation!.Card!.ExpirationYear" class="form-control" id="cc-exp-year" placeholder="" />
+                            <ValidationMessage For="() => aftRequestDto.PaymentInformation!.Card!.ExpirationYear" />
+                        </div>
+                        <div class="col-md-3 me-auto">
+                            <label for="cc-cvv" class="form-label">CVV</label>
+                            <InputText @bind-Value="aftRequestDto.PaymentInformation!.Card!.SecurityCode" class="form-control" id="cc-cvv" placeholder="" />
+                            <ValidationMessage For="() => aftRequestDto.PaymentInformation!.Card!.SecurityCode" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <hr class="my-4">
+            <div class="col d-flex">
+                <div class="col-5 m-1">
+                    <h5 class="mb-2"><b>Recipient Information</b></h5>
+                    <hr class="my-4">
+                    <div>
+                        <label for="recipientFirstName">Recipient First Name</label>
+                        <InputText id="recipientFirstName" @bind-Value="aftRequestDto!.RecipientInformation!.FirstName" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="recipientLastName">Recipient Last Name</label>
+                        <InputText id="recipientLastName" @bind-Value="aftRequestDto.RecipientInformation!.LastName" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="recipientAddress1">Recipient Address 1:</label>
+                        <InputText id="recipientAddress1" @bind-Value="aftRequestDto.RecipientInformation!.Address1" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="recipientAddress2">Recipient Address 2:</label>
+                        <InputText id="recipientAddress2" @bind-Value="aftRequestDto.RecipientInformation!.Address2" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="recipientCity">Recipient City</label>
+                        <InputText id="recipientCity" @bind-Value="aftRequestDto.RecipientInformation!.Locality" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="recipientState">Recipient State</label>
+                        <InputText id="recipientState" @bind-Value="aftRequestDto.RecipientInformation!.AdministrativeArea" class="form-control" />
+                    </div>
+                    <div>
+                        <label for="recipientCountry">Recipient Country Code</label>
+                        <InputText id="recipientCountry" @bind-Value="aftRequestDto.RecipientInformation!.CountryCode" class="form-control" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </FormSection>
+
+
+    <hr class="my-4">
+
+    <button type="submit" class="btn btn-primary">Submit</button>
+
+    <hr class="my-4">
+
+</EditForm>
+
+@code {
+
+
+    private bool IsChecked { get; set; } = false;
+    private bool aftOnly { get; set; } = false;
+    private string? error;
+    private bool containsError = false;
+
+    private SessionTransJson sessionTransJson = new();
+
+    private ISessionTransactions _sessionTransactions => sessionTransactions;
+
+    private AftRequestDto aftRequestDto = new AftRequestDto();
+
+    PayerAuthCardSampleDto paymentCardSampleDatumDTO = new PayerAuthCardSampleDto();
+    private List<PayerAuthCardSampleDto> paymentCardSampleDatumDtos = new List<PayerAuthCardSampleDto>();
+    private static List<BasicErrorInfo> basicErrorInfos = new List<BasicErrorInfo>();
+
+    protected override void OnInitialized()
+    {
+        aftRequestDto.RecipientInformation = new RecipientInformation();
+        aftRequestDto.SenderInformation = new SenderInformation();
+        aftRequestDto.PaymentInformation = new PaymentInformation
+        {
+            Card = new FullCard()
+        };
+
+    }
+    
+    private async void HandleValidSubmit()
+    {
+        try
+        {
+
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.STANDALONE_AFT_TRANSACTION;
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.STANDALONE_AFT_TRANSACTION;
+
+            aftRequestDto.CurrentTransaction = CcTransactionTypes.STANDALONE_AFT_TRANSACTION.ToString();
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(aftRequestDto, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, _sessionTransactions, 
+                (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            var jsonNode = sessionResponse.TransactionJson;
+
+            string[] errorKeywords = ["INVALID", "ERROR", "FAILED", "DECLINED", "invalid", "error", "failed", "declined"];
+
+
+            if (sessionResponse is null)
+            {
+                StateHasChanged(); // optional
+                error = "Session Response is null";
+                sessionResponse = new SessionTransJson();
+                sessionResponse.JsonTransactionStateValues = TransactionStateValues.Error;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+
+            if (sessionResponse is not null && sessionResponse.TransactionJson is not null)
+            {
+                basicErrorInfos = JsonErrorExtractor.ExtractErrorObjects(sessionResponse.TransactionJson.ToString());
+
+                containsError = basicErrorInfos.Any(e =>
+                    !string.IsNullOrWhiteSpace(e.Status) &&
+                    errorKeywords.Any(keyword =>
+                        e.Status.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (sessionResponse != null && containsError)
+            {
+                StateHasChanged(); // optional
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else
+            {
+                sessionTransactions.AddTrans(sessionResponse!);
+                Navigation.NavigateTo("/processfollowon");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    private async void PopulateForm()
+    {
+        aftRequestDto = new AftRequestDto();
+        aftRequestDto.SenderInformation = new SenderInformation();
+        aftRequestDto.RecipientInformation = new RecipientInformation();
+        aftRequestDto.MerchantInformation = new MerchantInformation();
+        aftRequestDto.OrderInformation = new OrderInformation();
+        aftRequestDto.ClientReferenceInformation = new ClientReferenceInformation();
+        aftRequestDto.PaymentInformation = new PaymentInformation();
+        aftRequestDto.PaymentInformation!.Card = new FullCard();
+        paymentCardSampleDatumDtos = new List<PayerAuthCardSampleDto>();
+
+        try
+        {
+            paymentCardSampleDatumDtos = await GeneralUtilities.GetSampleCards();
+
+            int paymentCardCount = paymentCardSampleDatumDtos.Count();
+
+            int random = GeneralUtilities.GenerateRandomNumber(1, 65);
+
+            int paymentCardRandom = GeneralUtilities.GenerateRandomNumber(1, paymentCardCount);
+
+            paymentCardSampleDatumDTO = paymentCardSampleDatumDtos.ElementAt(paymentCardRandom - 1);
+
+            string aftReferenceNumber = GeneralUtilities.GenerateRandom1FixedNumber(15);
+
+            aftRequestDto = await GeneralUtilities.PopulateSampleAft(aftOnly);
+
+            aftRequestDto.PaymentInformation!.Card!.Number = paymentCardSampleDatumDTO.AccountNumber;
+            aftRequestDto.PaymentInformation!.Card!.ExpirationMonth = paymentCardSampleDatumDTO.ExpMonth;
+            aftRequestDto.PaymentInformation!.Card!.ExpirationYear = paymentCardSampleDatumDTO.ExpYear;
+
+            aftRequestDto.SenderInformation!.ReferenceNumber = aftReferenceNumber.ToString();
+
+            await Task.Delay(1500);
+
+            StateHasChanged();
+        
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+}
+

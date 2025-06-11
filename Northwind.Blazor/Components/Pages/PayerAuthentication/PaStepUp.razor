@@ -1,0 +1,282 @@
+﻿@page "/pastepup"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IJSRuntime JSRuntime
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+@inject ILogger<PaStepUp> Logger
+
+<title>Payer Authentication Step Up Authentication</title>
+
+@if (showInitialForm || showStepUpJwt)
+{
+    <div class="row">
+        @if (showInitialForm)
+        {
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="card-title">
+                            <h3>Response Data:</h3>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Follow on Actions
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="pacheckenroll">Payer Auth Check Enrollment</a></li>
+                                    <li><a class="dropdown-item" href="aftpacheckenroll">Payer Auth Check Enrollment with AFT</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (propertyValues != null && propertyValues.Count > 0)
+                            {
+                                <ul>
+                                    @foreach (var propertyValue in propertyValues)
+                                    {
+                                        <li>@propertyValue</li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p>@error</p>
+                            }
+                        </div>
+                        <div class="card-footer">
+                            <div class="dropdown">
+                                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Follow on Actions
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="pacheckenroll">Payer Auth Check Enrollment</a></li>
+                                    <li><a class="dropdown-item" href="aftpacheckenroll">Payer Auth Check Enrollment with AFT</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (showStepUpJwt)
+        {
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(stepUpAuthUrl))
+                        {
+                            <p><b>Step Up Authentication </b></p>
+                            <iframe id="step-up-iframe" name="step-up-iframe" height="390" width="100%" class="border"></iframe>
+                            <form id="step-up-form" target="step-up-iframe" method="post" action="@stepUpAuthUrl">
+                                <input type="hidden" name="JWT" value="@jwt" />
+                                <input type="hidden" name="MD" value="@guidResponse" />
+                            </form>
+                        }
+                        else
+                        {
+                            <p>Waiting for JWT to be loaded...</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+<hr class="my-4">
+<div class="row">
+    <div class="col-md-6">
+        <div>
+            <button class="btn btn-primary" @onclick="GoHome">Go Home</button>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+    window.setDotNetReference = function (dotNetHelper) {
+        window.dotNetObjectReference = dotNetHelper;
+        console.log("dotNetObjectReference set.");
+    };
+
+    window.executeJSCardinalStepUpScript = function () {
+        const stepUpForm = document.querySelector('#step-up-form');
+        console.log("Looking for #step-up-form...");
+        if (stepUpForm) {
+            console.log('Cardinal Step Up Form found — submitting form.');
+            console.log('StepUp Form Action:', stepUpForm.action);
+            stepUpForm.submit();
+        } else {
+            console.error('step-up-form not found in DOM at time of JS call.');
+        }
+    };
+
+    window.delayedStepUpSubmit = function () {
+        setTimeout(() => {
+            console.log('Executing delayedStepUpSubmit...');
+            window.executeJSCardinalStepUpScript();
+        }, 300);
+    };
+</script>
+
+
+
+<br />
+
+@code {
+
+    private DotNetObjectReference<PaStepUp>? _dotNetRef;
+    private string? jwt;
+    private string? stepUpAuthUrl;
+    private string? error;
+    private string? dataCollectionResponse = string.Empty;
+    private string? decodedJwt = string.Empty;
+    private string? guidResponse = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new();
+    private DeviceDataCollectionInformation deviceDataCollectionInformation = new();
+    private CcTransactionTypes currentTransaction;
+    private B2cCustomer b2cCustomer = new B2cCustomer();
+    private GuidResponseDto guidResponseDto = new GuidResponseDto(); 
+
+    FollowOnTransResponse followOnTransResponse = new FollowOnTransResponse();
+
+    private List<string> propertyValues = new List<string>();
+
+    private bool showInitialForm = true;
+    private bool showStepUpJwt = true;
+    private bool jwtReady = false;
+    private bool showValidateButton = false;
+
+
+    [Parameter, EditorRequired] public EventCallback<JsonNode> OnSelected { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        // Ensure at least one transaction exists
+        if (_sessionTransactions.Transactions == null || !_sessionTransactions.Transactions.Any())
+        {
+            _sessionTransactions.AddTrans(new SessionTransJson());
+        }
+
+        sessionTransJson = _sessionTransactions.Transactions!.Last();
+
+        _dotNetRef = DotNetObjectReference.Create(this);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+
+            _sessionTransactions = sessionTransactions;
+
+            await JSRuntime.InvokeVoidAsync("setDotNetReference", _dotNetRef);
+
+            if (_sessionTransactions.Transactions.Any())
+            {
+                sessionTransJson = _sessionTransactions.Transactions!.LastOrDefault()!;
+
+                if (followOnTransResponse is null)
+                {
+                    followOnTransResponse = new FollowOnTransResponse();
+                }
+
+                currentTransaction = (CcTransactionTypes)sessionTransJson.CurrentTransactionType!;
+
+                Console.WriteLine($"Current Transaction Info\n: {sessionTransJson!.TransactionJson}");
+
+                followOnTransResponse = JsonSerializer.Deserialize<FollowOnTransResponse>(sessionTransJson!.TransactionJson!.ToString())!;
+
+                if (followOnTransResponse is not null &&
+                    followOnTransResponse.ConsumerAuthenticationInformation is not null &&
+                    followOnTransResponse.ConsumerAuthenticationInformation.ParesStatus == "C" &&
+                    followOnTransResponse.ConsumerAuthenticationInformation.VeresEnrolled == "Y" &&
+                    followOnTransResponse.ConsumerAuthenticationInformation.Pareq is not null &&
+                    followOnTransResponse.ConsumerAuthenticationInformation.StepUpUrl is not null &&
+                    followOnTransResponse.ConsumerAuthenticationInformation.AccessToken is not null)
+                {
+                    showInitialForm = true;
+                    showStepUpJwt = true;
+                    stepUpAuthUrl = followOnTransResponse.ConsumerAuthenticationInformation.StepUpUrl;
+
+                    string base64 = GeneralUtilities.Base64UrlToBase64(followOnTransResponse.ConsumerAuthenticationInformation.Pareq);
+                    string json = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+                    jwt = followOnTransResponse.ConsumerAuthenticationInformation.AccessToken;
+
+                    var paReqResponse = JsonSerializer.Deserialize<PaReqResponse>(json);
+                    propertyValues = PropertiesProcessor.GetProperties(paReqResponse!);
+
+                    if (customersScoped is not null && customersScoped.CustData.Any())
+                    {
+                        b2cCustomer = customersScoped.CustData.LastOrDefault()!;
+                    }
+                    else
+                    {
+                        Console.WriteLine("No customer found");
+                    }
+
+                    var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+                    string jsonString = JsonSerializer.Serialize(b2cCustomer, options);
+
+                    Console.WriteLine($"\n SESSION TRANSACTIONS:\n {jsonString}");
+
+                    // POST FOR FOLLOW ON TRANSACTION *******
+
+                    SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString,
+                        sessionTransactions, CcTransactionTypes.SESSION_STATE_STORE);
+
+                    // POST FOR FOLLOW ON TRANSACTION *******
+
+                    // In your method:
+
+                    jsonString = JsonSerializer.Serialize(sessionResponse.TransactionJson, options);
+
+                    guidResponseDto = JsonSerializer.Deserialize<GuidResponseDto>(jsonString)!;
+                    guidResponse = guidResponseDto?.Guid;
+
+                    // If you want to check for a valid GUID:
+                    if (guidResponse != null && Guid.TryParse(guidResponse, out var parsedGuid))
+                    {
+                        Console.WriteLine($"GUID RETURNED FROM SERVER: {guidResponse}");
+                    }
+                    else
+                    {
+                        Console.WriteLine("NO GUID RETURNED FROM SERVER");
+                    }
+
+                    jwtReady = true;
+
+                }
+
+
+                StateHasChanged(); // ⬅️ Triggers re-render so the form appears.
+                return;
+            }
+            else
+            {
+                error = "No Data";
+            }
+        }
+
+        // 🟩 This block runs after form is rendered
+        if (jwtReady && !string.IsNullOrEmpty(jwt))
+        {
+            jwtReady = false; // Prevent re-entry
+            await JSRuntime.InvokeVoidAsync("delayedStepUpSubmit"); // Let JS wait and submit
+        }
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+
+}

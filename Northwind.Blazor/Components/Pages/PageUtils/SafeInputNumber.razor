@@ -1,0 +1,31 @@
+﻿@typeparam TModel
+@typeparam TValue
+
+<InputNumber @attributes="AdditionalAttributes"
+             @bind-Value="Value"
+             class="@CssClass"
+             id="@Id"
+             placeholder="@Placeholder" />
+
+@code {
+    [Parameter, EditorRequired]
+    public TModel? Model { get; set; }
+
+    [Parameter, EditorRequired]
+    public TValue? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<TValue?> ValueChanged { get; set; }
+
+    [Parameter]
+    public string CssClass { get; set; } = "form-control";
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> AdditionalAttributes { get; set; } = new();
+}

@@ -1,0 +1,141 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/tokencreate"
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+
+<title>Token Creation</title>
+
+<div class="py-1 text-center">
+    <h2>Create TMS Token</h2>
+</div>
+
+<hr class="my-4">
+
+<div>
+    <div class="row g-5">
+        @if (Show)
+        {
+            <CustomerComponent ButtonText="Create Token" FormElements="HomeFormElements" FormCustomer="b2CCustomer" ValidSubmit="Submit"></CustomerComponent>
+        }
+
+        <FormSection>
+            @if (error is not null)
+            {
+                <div class="col-6">
+                    <strong class="alert-danger">@error</strong>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Follow on Actions
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                    </ul>
+                </div>
+            }
+        </FormSection>
+    </div>
+
+  <footer class="my-5 pt-5 text-body-secondary text-center text-small">
+    <p class="mb-1">&copy; 2017–2024 Company Name</p>
+    <ul class="list-inline">
+      <li class="list-inline-item"><a href="#">Privacy</a></li>
+      <li class="list-inline-item"><a href="#">Terms</a></li>
+      <li class="list-inline-item"><a href="#">Support</a></li>
+    </ul>
+  </footer>
+</div>
+
+@code {
+    private bool Show = true;
+
+    List<string> HomeFormElements = new List<string> { "ShowMainForm", "ShowBilling", "ShowAccountDetails", "ShowCreateToken" };
+
+    private string? error;
+
+    private List<string> TokenTypes = new();
+
+    private B2cCustomer b2CCustomer = new();
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+
+    private SessionTransJson sessionTransJson = new();
+
+    private JsonNode? _transactionJson = null;
+
+
+    protected override void OnInitialized()
+    {
+
+        _sessionTransactions = sessionTransactions;
+
+        if (_sessionTransactions.Transactions.Count > 0)
+        {
+            sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+        }
+
+        if (sessionTransJson.Customer != null)
+        {
+            b2CCustomer = sessionTransJson.Customer;
+        }
+    }
+
+
+    private async Task Submit(B2cCustomer submittedCustomer)
+    {
+        try
+        {
+
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.TOKEN_CREATE;
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.TOKEN_CREATE;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(submittedCustomer, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && sessionResponse.TransactionStatus.Contains("error"))
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.TransactionJson;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/processfollowontoken");
+            }
+            else
+            {
+                error = "Error: " + sessionResponse!.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+}

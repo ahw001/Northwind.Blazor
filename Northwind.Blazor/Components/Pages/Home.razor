@@ -1,0 +1,129 @@
+﻿@page "/"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject NavigationManager Navigation
+
+<PageTitle>Home</PageTitle>
+
+
+<h1>cybersource Test Harness</h1>
+<br />
+
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mb-1">
+            <div class="card">
+                <h5 class="card-header">Process a Checkout</h5>
+                <div class="card-body">
+                    <h5 class="card-title">Use Default Values Auth/Sale</h5>
+                    <p class="card-text">You can create an Auth or a Sale With a Token Creation. Follow On Transactions Can Follow.</p>
+                    <a href="checkout" class="btn btn-primary">Checkout</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-1">
+            <div class="card">
+                <h5 class="card-header">Follow On Transactions</h5>
+                <div class="card-body">
+                    <h5 class="card-title">Perform Follow On Transactions</h5>
+                    <p class="card-text">After Initial Transaction Follow On Transaction Can Be Capture, Void, or Credit.</p>
+                    <a href="#" class="btn btn-primary">Follow on Transactions</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<hr class="my-4">
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mb-1">
+            <div class="card">
+                <h5 class="card-header">Create a TMS Token</h5>
+                <div class="card-body">
+                    <h5 class="card-title">Use Default Values to Create a TMS Token</h5>
+                    <p class="card-text">You can create a Customer, Shipping Address, Payment Instrument or Instrument Identifier.</p>
+                    <a href="checkout" class="btn btn-primary">Token Create</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-1">
+            <div class="card">
+                <h5 class="card-header">Get Customers from Database</h5>
+                <div class="card-body">
+                    <h5 class="card-title">Use Database Queries to Retrieve Customers</h5>
+                    <p class="card-text">After Retrieving Customers, You May Perform New Token Creations or Retrieve Related Payment Instruments.</p>
+                    <a href="#" class="btn btn-primary">Follow on Transactions</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mb-1">
+            <div class="card">
+                <h5 class="card-header">Standalone Credit</h5>
+                <div class="card-body">
+                    <h5 class="card-title">Use Default Values to Perform a Standalone Credit</h5>
+                    <p class="card-text">Perform a Credit as a Stand Alone Transaction Without Reference to a Previous Transaction.</p>
+                    <a href="checkout" class="btn btn-primary">Stand Alone Credit</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-1">
+            <div class="card">
+                <h5 class="card-header">Credit With Reference</h5>
+                <div class="card-body">
+                    <h5 class="card-title">Perform a Credit Based on a Previous Transaction</h5>
+                    <p class="card-text">Enter a Credit Based on a Previous Capture or Sale.</p>
+                    <a href="#" class="btn btn-primary">Follow on Credit</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mb-1">
+            <div class="card">
+                <h5 class="card-header">Create a TMS Token</h5>
+                <div class="card-body">
+                    <h5 class="card-title">Use Default Values to Create a TMS Token</h5>
+                    <p class="card-text">You can create a Customer, Shipping Address, Payment Instrument or Instrument Identifier.</p>
+                    <a href="checkout" class="btn btn-primary">Token Create</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-1">
+            <div class="card">
+                <h5 class="card-header">Get Customers from Database</h5>
+                <div class="card-body">
+                    <h5 class="card-title">Use Database Queries to Retrieve Customers</h5>
+                    <p class="card-text">After Retrieving Customers, You May Perform New Token Creations or Retrieve Related Payment Instruments.</p>
+                    <a href="#" class="btn btn-primary">Follow On Transactions</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+
+@code {
+
+ 
+}
+
+
+
+

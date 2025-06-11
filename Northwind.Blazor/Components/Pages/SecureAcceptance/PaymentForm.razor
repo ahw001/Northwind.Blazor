@@ -1,0 +1,213 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/sacheckout"
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+@inject IJSRuntime JSRuntime
+
+<script src="Components/Pages/SecureAcceptance/PaymentForm.razor.js"></script>
+
+<h3>Payment Setup Form</h3>
+
+<h1>Session Storage Items</h1>
+
+<ul>
+    @foreach (var item in SessionStorageItems)
+    {
+        <li>@item.Key: @item.Value</li>
+    }
+</ul>
+
+<div>
+    <button type="button" class="btn btn-warning" @onclick="ShowStorageItems">Show Storage Items</button>
+</div>
+<br />
+<br />
+
+@if (showPaymentForm)
+{
+    <EditForm Model="secureAcceptanceFields" OnValidSubmit="HandleValidSubmit">
+        <div>
+            <label>@getUTCDateTime()</label>
+        </div>
+        <div class="row g-3">
+            <div class="col-sm-6">
+
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Locale</label>
+                    <InputText @bind-Value="secureAcceptanceFields.locale" id="locale" />
+                </div>
+
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Access Key</label>
+                    <InputText @bind-Value="secureAcceptanceFields.access_key" id="access_key" />
+                </div>
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Profile ID</label>
+                    <InputText @bind-Value="secureAcceptanceFields.profile_id" id="" />
+                </div>
+
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Transaction UUID</label>
+                    <InputText @bind-Value="secureAcceptanceFields.transaction_uuid" id="transaction_uuid" />
+                </div>
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Signed Field Names</label>
+                    <InputText @bind-Value="secureAcceptanceFields.signed_field_names" id="signed_field_names" />
+                </div>
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Unsigned Field Names</label>
+                    <InputText @bind-Value="secureAcceptanceFields.unsigned_field_names" id="unsigned_field_names" />
+                </div>
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Signed Date and Time</label>
+                    <InputText @bind-Value="secureAcceptanceFields.signed_date_time" id="signed_date_time" />
+                </div>
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Transaction Type</label>
+                    <InputText @bind-Value="secureAcceptanceFields.transaction_type" id="transaction_type" />
+                </div>
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Reference Number</label>
+                    <InputText @bind-Value="secureAcceptanceFields.reference_number" id="reference_number" />
+                </div>
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Amount</label>
+                    <InputText @bind-Value="secureAcceptanceFields.amount" id="amount" />
+                </div>
+                <div class="col-md-9">
+                    <label for="country" class="form-label">Currency</label>
+                    <InputText @bind-Value="secureAcceptanceFields.currency" id="currency" />
+                </div>
+                <button class="w-100 btn btn-primary btn-lg" type="submit">Checkout</button>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@if (showProcessor) 
+{
+    <PaymentFormProcessor secureAcceptanceFields="secureAcceptanceFields"></PaymentFormProcessor>
+}
+
+
+
+
+@code {
+
+
+    public SecureAcceptanceFields? secureAcceptanceFields = new();
+
+    private bool showProcessor = false;
+    private bool showPaymentForm = true;
+
+    private string? dataUri { get; set; }
+    private string? UrlToRedirect { get; set; }
+
+    private B2cCustomer b2CCustomer = new();
+
+    Dictionary<string, string> formValues = new();
+    Dictionary<string, string> SessionStorageItems { get; set; } = new Dictionary<string, string>();
+
+    protected override void OnInitialized()
+    {
+        /*
+        secureAcceptanceFields.locale = "en";
+        secureAcceptanceFields.unsigned_field_names = "";
+        secureAcceptanceFields.signed_date_time = getUTCDateTime();
+        secureAcceptanceFields.transaction_type = "authorization";
+        secureAcceptanceFields.reference_number = "ABC123";
+        secureAcceptanceFields.amount = "12.77";
+        secureAcceptanceFields.currency = "USD";
+
+        formValues.Add("signed_field_names", secureAcceptanceFields.signed_field_names);
+        formValues.Add("access_key", secureAcceptanceFields.access_key);
+        formValues.Add("profile_id", secureAcceptanceFields.profile_id);
+        formValues.Add("transaction_uuid", secureAcceptanceFields.transaction_uuid);
+        formValues.Add("locale", secureAcceptanceFields.locale);
+        formValues.Add("unsigned_field_names", secureAcceptanceFields.unsigned_field_names);
+        formValues.Add("signed_date_time", secureAcceptanceFields.signed_date_time);
+        formValues.Add("transaction_type", secureAcceptanceFields.transaction_type);
+        formValues.Add("reference_number", secureAcceptanceFields.reference_number);
+        formValues.Add("amount", secureAcceptanceFields.amount);
+        formValues.Add("currency", secureAcceptanceFields.currency);
+        */
+
+    }
+
+    public async void HandleValidSubmit()
+    {
+        await JSRuntime.InvokeVoidAsync("getTheTimeFromFile");
+
+        //string signature = SaSecurity.sign(formValues);
+        //formValues.Add("signature", signature);
+        //Console.WriteLine($"Signature = {signature}");
+
+        //secureAcceptanceFields.signature = signature;
+
+        showProcessor = true;
+        showPaymentForm = false;
+
+        /*
+        var content = new FormUrlEncodedContent(formValues);
+
+        using (var client = new HttpClient())
+        {
+            HttpResponseMessage response = await client.PostAsync("https://testsecureacceptance.cybersource.com/pay", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Assuming the URL is in the response content or a header
+                string urlContent = await response.Content.ReadAsStringAsync();
+                //string urlToRedirect = response.RequestMessage.ToString();
+                Console.WriteLine($"urlContent as a string: {urlContent}");
+                //Console.WriteLine($"urlToRedirect as a string: {urlToRedirect}");
+
+                string encodedHtml = Convert.ToBase64String(Encoding.UTF8.GetBytes(urlContent));
+                dataUri = $"data:text/html;base64,{encodedHtml}";
+                UrlToRedirect = "https://testsecureacceptance.cybersource.com/checkout";
+
+                StateHasChanged();
+                // Redirect to the new URL
+                // Redirect(urlToRedirect);
+            }
+
+
+        }
+        */
+        StateHasChanged();
+    }
+
+    private void Redirect(string url)
+    {
+        Navigation.NavigateTo(url, forceLoad: true);
+    }
+
+
+    public String getUTCDateTime()
+    {
+        DateTime time = DateTime.Now.ToUniversalTime();
+        return time.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+    }
+
+
+    async Task ShowStorageItems()
+    {
+        var items = await JSRuntime.InvokeAsync<Dictionary<string, string>>("sessionStorageHelper.getSessionStorageItems");
+        SessionStorageItems = items;
+        StateHasChanged();
+
+    }
+
+    async Task LoadSessionStorageItems()
+    {
+        var items = await JSRuntime.InvokeAsync<Dictionary<string, string>>("sessionStorageHelper.getSessionStorageItems");
+        SessionStorageItems = items;
+        StateHasChanged();
+    }
+
+}

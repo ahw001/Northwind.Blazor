@@ -1,0 +1,162 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/newpaymentcard"
+
+@inject NavigationManager Navigation
+@inject ICartService cartService
+@inject ISessionTransactions sessionTransactions
+@inject ICustomersScoped customersScoped
+
+<h3>New Payment Card Form</h3>
+
+
+<hr class="my-4">
+
+<div>
+    <div class="row g-5">
+        @if (Show)
+        {
+            <CustomerComponent ButtonText="New Payment Instrument" FormElements="HomeFormElements" FormCustomer="b2CCustomer" ValidSubmit="Submit"></CustomerComponent>
+        }
+
+        @if (createdNewPaymentCard)
+        { 
+            <FormSection>
+                @if (error is not null)
+                {
+                    <div class="col-6">
+                        <strong class="alert-danger">@error</strong>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Follow on Actions
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                            <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                        </ul>
+                    </div>
+                }
+                else
+                {
+                    <div class="col-6">
+
+                        <h3>New Payment Card Created</h3>
+
+                        <hr class="my-4">
+
+                        <strong class="alert-danger">Payment Card ID: @paymentCardId</strong>
+
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Follow on Actions
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                            <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                        </ul>
+                    </div>
+                }
+            </FormSection>
+        }
+    </div>
+
+    <footer class="my-5 pt-5 text-body-secondary text-center text-small">
+        <p class="mb-1">&copy; 2017–2024 Company Name</p>
+        <ul class="list-inline">
+            <li class="list-inline-item"><a href="#">Privacy</a></li>
+            <li class="list-inline-item"><a href="#">Terms</a></li>
+            <li class="list-inline-item"><a href="#">Support</a></li>
+        </ul>
+    </footer>
+</div>
+
+@code {
+
+    private bool Show = true;
+    private bool createdNewPaymentCard = false;
+
+    List<string> HomeFormElements = new List<string> { "ShowAccountDetails", "ShowDefaults", "ShowCreateToken" };
+
+    private List<string> TokenTypes = new();
+
+    private B2cCustomer b2CCustomer = new();
+
+    private PaymentCardDto paymentCardDto = new PaymentCardDto();
+
+    public string? error { get; set; }
+    private string? paymentCardId { get; set; }
+
+    public B2cCustomer? customer { get; set; }
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private SessionTransJson sessionTransJsonResponse = new SessionTransJson();
+
+    protected override void OnInitialized()
+    {
+        if (paymentCardDto is null)
+        {
+            paymentCardDto = new PaymentCardDto();
+        }
+
+        _sessionTransactions = sessionTransactions;
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+        if (sessionTransJson is not null)
+        {
+            JsonDocument document = JsonDocument.Parse(sessionTransJson!.TransactionJson!.ToString());
+
+            if (document.RootElement.TryGetProperty("B2cCustomerId", out JsonElement b2cCustomerId))
+            {
+                paymentCardDto.B2cCustomerId = b2cCustomerId.GetInt32();
+                Console.WriteLine($"PaymentCardDto B2CustomerID: {paymentCardDto.B2cCustomerId}");
+            }
+        }
+    }
+
+    private async Task Submit(B2cCustomer submittedCustomer)
+    {
+        try
+        {
+            if (submittedCustomer is not null && submittedCustomer.AccountNumber is not null)
+            {
+                paymentCardDto.AccountNumber = submittedCustomer!.AccountNumber! ?? null;
+                paymentCardDto.ExpMonth = submittedCustomer!.ExpMonth! ?? null;
+                paymentCardDto.ExpYear = submittedCustomer!.ExpYear! ?? null;
+
+                await InsertNewPaymentCard();
+            }
+
+
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    private async Task InsertNewPaymentCard()
+    {
+        sessionTransJsonResponse = await DBPaymentServices.InsertPaymentCard(paymentCardDto);
+        if (sessionTransJsonResponse is not null)
+        {
+            if (sessionTransJsonResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                Show = false;
+                createdNewPaymentCard = true;
+                paymentCardId = sessionTransJsonResponse.TransactionId;
+            }
+        }
+        //createNewPaymentCard = false;
+    }
+
+}

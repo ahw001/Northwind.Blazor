@@ -1,0 +1,494 @@
+﻿@page "/flexform"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IJSRuntime JSRuntime
+@inject ICustomersScoped custTransFormDto
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+
+
+@inject ISessionTransactions sessionTransactions
+
+<PageTitle>Flex Checkout Form</PageTitle>
+
+<hr class="my-4">
+@if (showInitialForm)
+{
+    <h1>Flex Form for PAN Entry</h1>
+    <div id="errors-output" role="alert"></div>
+    <div class="col-6 border-black">
+        <form action="/token" id="my-sample-form" method="post">
+            <div class="form-group border-1">
+                <label for="cardholderName">Name</label>
+                <input id="cardholderName" class="form-control" @bind="fullName" placeholder="Name on the card">
+                <p>Use 4000000000002503 to force a step up URL:</p>
+                <label id="cardNumber-label">Card Number</label> 
+                <div id="number-container" class="border border-1 rounded p-2" style="width: 300px; height: 40px;"></div>
+                <label for="securityCode-container">Security Code</label>
+                <div id="securityCode-container" class="border border-1 rounded p-2" style="background-color:white; width: 100px; height: 40px;"></div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="expMonth">Expiry month</label>
+                    <select id="expMonth" class="form-control">
+                        <option>01</option>
+                        <option>02</option>
+                        <option>03</option>
+                        <option>04</option>
+                        <option>05</option>
+                        <option>06</option>
+                        <option>07</option>
+                        <option>08</option>
+                        <option>09</option>
+                        <option>10</option>
+                        <option>11</option>
+                        <option>12</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="expYear">Expiry year</label>
+                    <select id="expYear" class="form-control">
+                        <option>2026</option>
+                        <option>2028</option>
+                        <option>2027</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="button" id="pay-button" class="btn btn-primary">Pay</button>
+            <input type="hidden" id="flexresponse" name="flexresponse">
+        </form>
+    </div>
+}
+
+@if (showTransToken)
+{
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                @if (decodedTransientToken is not null)
+                {
+                    <h4>Transient Token</h4>
+                    @foreach (var propertyValue in decodedTransientToken)
+                    {
+                        <span>@propertyValue</span>
+                    }
+                    <hr class="my-4">
+                    <button class="btn btn-primary" type="button" @onclick="SubmitTransTokenPayment">
+                        SUBMIT FOR AUTHORIZATION
+                    </button>
+                    <hr class="my-4">
+                    <button class="btn btn-primary" type="button" @onclick="SubmitAftTransToken">
+                        SUBMIT FOR AFT
+                    </button>
+                    <hr class="my-4">
+                    <button class="btn btn-primary" type="button" @onclick="SubmitTransTokenPaSetup">
+                        SUBMIT FOR PA SETUP
+                    </button>
+                }
+                else
+                {
+                    <h4>Error</h4>
+                    <p>@error</p>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Follow on Actions
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="void">New Flex Checkout</a></li>
+                            <li><a class="dropdown-item" href="/">Home</a></li>
+                        </ul>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<hr class="my-4">
+
+<input type="hidden" id="jwt" @bind="jwt" />
+<input type="hidden" id="transientToken" />
+
+<script src="https://testflex.cybersource.com/microform/bundle/v2/flex-microform.min.js" onload="scriptLoaded()"></script>
+
+<script>
+
+    window.scriptIsLoaded = false; // Global flag
+
+    function syncCardholderName(dotNetObjectReference) {
+    var nameValue = document.getElementById('cardholderName').value;
+    dotNetObjectReference.invokeMethodAsync('UpdateFullNameFromJs', nameValue);
+    }
+
+    function scriptLoaded() {
+    console.log("flex-microform.min.js has loaded");
+    window.scriptIsLoaded = true; // Set the flag when script is loaded
+    }
+
+    function executeFlexScript(dotNetObjectReference, jwt) {
+
+    console.log("....inside executeFlexScript....");
+
+    syncCardholderName(dotNetObjectReference);
+
+    // Variables from the HTML form
+    var form = document.querySelector('#my-sample-form');
+    var payButton = document.querySelector('#pay-button');
+    var flexResponse = document.querySelector('#flexresponse');
+    var expMonth = document.querySelector('#expMonth');
+    var expYear = document.querySelector('#expYear');
+    var errorsOutput = document.querySelector('#errors-output');
+
+    // the capture context that was requested server-side for this transaction
+    var captureContext = jwt;
+    //console.log("captureContext: " + jwt);
+
+    // setup Microform
+    var flex = new Flex(captureContext);
+    var microform = flex.microform();
+    var number = microform.createField('number', { placeholder: 'Enter card number' });
+    var securityCode = microform.createField('securityCode', { placeholder: '•••' });
+
+    number.load('#number-container');
+    securityCode.load('#securityCode-container');
+
+
+    // Configuring a Listener for the Pay button
+    payButton.addEventListener('click', function () {
+
+    // Compiling MM & YY into optional paramiters
+    var options = {
+    expirationMonth: document.querySelector('#expMonth').value,
+    expirationYear: document.querySelector('#expYear').value
+    };
+    //
+    microform.createToken(options, function (err, token) {
+    if (err) {
+    // handle error
+    console.error(err);
+    errorsOutput.textContent = err.message;
+    } else {
+    // At this point you may pass the token back to your server as you wish.
+    // In this example we append a hidden input to the form and submit it.
+    console.log("Transient Token from Flex Script:" + JSON.stringify(token));
+    flexResponse.value = JSON.stringify(token);
+    dotNetObjectReference.invokeMethodAsync('ReceiveTransientToken', token);
+    }
+    });
+    });
+    }
+</script>
+
+
+
+@code {
+
+
+    private string? jwt;
+    private string? error = null;
+    private string? transientCtxToken;
+    private string? transientToken = string.Empty;
+    private string? fullName = string.Empty;
+
+    public Dictionary<string, string>? decodedTransientToken { get; private set; }
+
+    private AftRequestDto aftRequestDto = new AftRequestDto();
+
+    private DotNetObjectReference<FlexForm>? _dotNetRef;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private B2cCustomer b2CCustomer = new B2cCustomer();
+    private CaptureContextDto captureContextDto = new CaptureContextDto();
+
+    private CcTransactionTypes currentTransaction;
+
+    private bool showInitialForm = true;
+    private bool showTransToken = false;
+
+    private JsonNode? _transactionJson = null;
+
+    protected override void OnInitialized()
+    {
+        _dotNetRef = DotNetObjectReference.Create(this);
+    }
+
+    protected override void OnParametersSet()
+    {
+        StateHasChanged();
+        base.OnParametersSet();
+    }
+
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _sessionTransactions = sessionTransactions;
+
+            if (_sessionTransactions.Transactions.Any())
+            {
+                sessionTransJson = _sessionTransactions.Transactions!.LastOrDefault()!;
+
+                captureContextDto = JsonSerializer.Deserialize<CaptureContextDto>(sessionTransJson.TransactionJson)!;
+
+                jwt = captureContextDto.Ctx;
+
+                b2CCustomer = sessionTransJson?.Customer!;
+                if (b2CCustomer.FirstName is not null && b2CCustomer.LastName is not null)
+                {
+                    fullName = b2CCustomer.FirstName + " " + b2CCustomer.LastName;
+                }
+
+                StateHasChanged();
+            }
+            else
+            {
+                error = "No Data";
+                showInitialForm = false;
+                showTransToken = true;
+            }
+
+            while (!await JSRuntime.InvokeAsync<bool>("eval", "window.scriptIsLoaded"))
+            {
+                await Task.Delay(100); // Check every 100 milliseconds
+            }
+            await JSRuntime.InvokeVoidAsync("executeFlexScript", _dotNetRef, jwt);
+
+
+        }
+    }
+
+    [JSInvokable]
+    public void ReceiveTransientToken(string tt)
+    {
+        Console.WriteLine($"Transient Token received: {tt}");
+        // Handle the token as needed
+        if (tt != null)
+        {
+            sessionTransactions.DeleteAll();
+
+            decodedTransientToken = JWTItems.DecodeJWT(tt);
+
+
+            transientCtxToken = tt;
+            sessionTransJson.TransientToken = transientCtxToken;
+
+            sessionTransactions.AddTrans(sessionTransJson);
+
+            foreach (var kvp in decodedTransientToken)
+            {
+                Console.WriteLine($"Decoded Transient Token Key: {kvp.Key}, Value: {kvp.Value}");
+                const string V = "jti";
+                if (kvp.Key == V)
+                {
+                    transientToken = kvp.Value;
+                }
+            }
+
+            if (transientCtxToken is not null && customersScoped.CustData.Any() && customersScoped.CustData.LastOrDefault() is not null)
+            {
+                customersScoped.CustData.LastOrDefault()!.TransientTokenJwt = transientCtxToken;
+            }
+
+            if (transientToken is not null && customersScoped.CustData.Any() && customersScoped.CustData.LastOrDefault() is not null)
+            {
+                customersScoped.CustData.LastOrDefault()!.TransientToken = transientToken;    
+            }
+
+            showTransToken = true;
+            showInitialForm = false;
+        }
+        else
+        {
+            error = "No Transient Token received";
+        }
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void UpdateFullNameFromJs(string nameValue)
+    {
+        fullName = nameValue;
+        StateHasChanged();
+    }
+
+
+    public async void SubmitTransTokenPayment()
+    {
+        string response = string.Empty;
+
+        CtxPaymentDto ctxPaymentDto = new();
+
+        Guid guid = Guid.NewGuid();
+
+        ctxPaymentDto.TokenInformation!.TransientTokenJwt = transientCtxToken;
+        ctxPaymentDto.ClientReferenceInformation!.Code = guid.ToString();
+        ctxPaymentDto.OrderInformation!.AmountDetails!.AuthorizedAmount = b2CCustomer.TotalAmount.HasValue ? b2CCustomer.TotalAmount.Value.ToString("0.00") : "0.00"; 
+        ctxPaymentDto.OrderInformation!.AmountDetails.TotalAmount = b2CCustomer.TotalAmount.HasValue ? b2CCustomer.TotalAmount.Value.ToString("0.00") : "0.00";
+        ctxPaymentDto.OrderInformation!.AmountDetails.Currency = b2CCustomer.Currency;
+        ctxPaymentDto.B2cCustomerId = captureContextDto.B2cCustomerId;
+        ctxPaymentDto.OrderId = captureContextDto.OrderId;
+        ctxPaymentDto.OrderInformation.BillTo!.FirstName = b2CCustomer.FirstName;
+        ctxPaymentDto.OrderInformation.BillTo!.LastName = b2CCustomer.LastName;
+        ctxPaymentDto.OrderInformation.BillTo!.Email = b2CCustomer.Email;
+        ctxPaymentDto.OrderInformation.BillTo!.PhoneNumber = b2CCustomer.Phone;
+        ctxPaymentDto.OrderInformation.BillTo!.Address1 = b2CCustomer.Address1;
+        ctxPaymentDto.OrderInformation.BillTo!.Locality = b2CCustomer.City;
+        ctxPaymentDto.OrderInformation.BillTo!.AdministrativeArea = b2CCustomer.AdministrativeArea;
+        ctxPaymentDto.OrderInformation.BillTo!.PostalCode = b2CCustomer.PostalCode;
+        ctxPaymentDto.OrderInformation.BillTo!.Country = b2CCustomer.Country;
+
+        sessionTransJson = new();
+
+        sessionTransJson.CurrentTransactionType = CcTransactionTypes.FLEX_CHECKOUT_PAYMENT;
+        currentTransaction = CcTransactionTypes.FLEX_CHECKOUT_PAYMENT;
+
+        // Serialize the object into a string for submission
+
+        var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+        string jsonString = JsonSerializer.Serialize(ctxPaymentDto, options);
+
+        try
+        {
+            // POST FOR FLEX CHECKOUT PAYMENT TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType);
+
+            // POST FOR FLEX CHECKOUT PAYMENT TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && (sessionResponse.TransactionStatus.Contains("error", StringComparison.OrdinalIgnoreCase) || sessionResponse.TransactionStatus.Contains("exception", StringComparison.OrdinalIgnoreCase)))
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && (sessionResponse.TransactionStatus.Contains("INVALID", StringComparison.OrdinalIgnoreCase) || sessionResponse.TransactionStatus.Contains("DECLINED", StringComparison.OrdinalIgnoreCase)))
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.CurrentTransactionType == CcTransactionTypes.UNIFIED_CHECKOUT_PAYMENT ? sessionResponse.TransactionJson : null;
+                _transactionJson = sessionResponse.TransactionJson;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/processfollowon");
+            }
+            else
+            {
+                error = "Error: No response from server";
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    public async void SubmitTransTokenPaSetup()
+    {
+        string response = string.Empty;
+
+        CtxPaymentDto ctxPaymentDto = new();
+
+        Guid guid = Guid.NewGuid();
+
+        ctxPaymentDto.TokenInformation!.TransientToken = transientToken;
+
+        sessionTransJson = new();
+
+        sessionTransJson.Customer = new();
+
+        sessionTransJson.Customer = b2CCustomer;
+
+        sessionTransJson.CurrentTransactionType = CcTransactionTypes.FLEX_PA_SETUP;
+        currentTransaction = CcTransactionTypes.FLEX_PA_SETUP;
+        sessionTransJson.TransientToken = transientToken;
+
+
+        // Serialize the object into a string for submission
+
+        var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+        string jsonString = JsonSerializer.Serialize(ctxPaymentDto, options);
+
+        try
+        {
+            // POST FOR TRANS TOKEN PA SETUP *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType);
+
+            // POST FOR TRANS TOKEN PA SETUP *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && (sessionResponse.TransactionStatus.Contains("error", StringComparison.OrdinalIgnoreCase) || sessionResponse.TransactionStatus.Contains("exception", StringComparison.OrdinalIgnoreCase)))
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && (sessionResponse.TransactionStatus.Contains("INVALID", StringComparison.OrdinalIgnoreCase) || sessionResponse.TransactionStatus.Contains("DECLINED", StringComparison.OrdinalIgnoreCase)))
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                sessionResponse.Customer = b2CCustomer;
+                if (transientToken is not null)
+                {
+                    sessionResponse.TransientToken = transientToken;
+                }
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/processfollowon");
+            }
+            else
+            {
+                error = "Error: No response from server";
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    public void SubmitAftTransToken()
+    {
+
+        sessionTransJson.CurrentTransactionType = CcTransactionTypes.FLEX_AFT_TRANSACTION;
+        currentTransaction = CcTransactionTypes.FLEX_AFT_TRANSACTION;
+
+        Navigation.NavigateTo("/aftflextransprocessor");
+
+    }
+
+
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+    }
+
+}

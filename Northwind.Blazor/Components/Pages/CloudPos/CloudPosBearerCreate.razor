@@ -1,0 +1,104 @@
+﻿@page "/cloudposbearer"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+
+<h3>CloudPos Bearer Create</h3>
+
+<div class="container">
+    <main>
+
+        @if (Show)
+        {
+            <hr class="my-4">
+
+            <button class="btn btn-primary" type="button" @onclick="Submit">
+                CREATE CLOUD MODE BEARER TOKEN
+            </button>
+        }
+
+    </main>
+</div>
+
+@if (error != null)
+{
+    <p class="text-danger">@error</p>
+}
+
+@code {
+
+    public bool Show { get; set; } = true;
+
+
+    private string? error;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private CcTransactionTypes ccTransactionType = new CcTransactionTypes();
+    private SessionTransJson sessionTransJson = new();
+
+    private JsonNode? _transactionJson = null;
+
+    private JwtPayload tokenPayload = new JwtPayload();
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+    }
+
+    private async Task Submit()
+    {
+        try
+        {
+            string emptyJson = "{}";
+
+            ccTransactionType = CcTransactionTypes.CLOUD_POS_BEARER_CREATE;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(emptyJson, options);
+
+            // POST FOR CLOUD POS BEARER CREATE TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, ccTransactionType);
+
+            // POST FOR CLOUD POS BEARER CREATE TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && sessionResponse.TransactionStatus.Contains("error"))
+            {
+                error = "Error: " + sessionResponse.TransactionJson;
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.TransactionJson;
+
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/cloudbearerprocessor");
+            }
+            else
+            {
+                error = "Error: No response from server";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+}

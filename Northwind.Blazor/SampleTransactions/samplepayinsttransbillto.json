@@ -1,0 +1,27 @@
+{
+  "clientReferenceInformation": {
+    "code": "TC50171_3"
+  },
+  "paymentInformation": {
+    "paymentInstrument": {
+      "id": "7424261836136761303812"
+    }
+  },
+  "orderInformation": {
+    "billTo": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "address1": "1 Market St",
+      "locality": "san francisco",
+      "administrativeArea": "CA",
+      "postalCode": "94105",
+      "country": "US",
+      "email": "test@cybs.com",
+      "phoneNumber": "4158880000"
+    },
+    "amountDetails": {
+      "totalAmount": "44.88",
+      "currency": "USD"
+    }
+  }
+}

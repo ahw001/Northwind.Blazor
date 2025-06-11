@@ -1,0 +1,114 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/processfollowoninvoice"
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>@transactionPageTitle</h1>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mb-2">
+            <div class="card">
+                <div class="card-body">
+                    @if (showResultCard)
+                    {
+                        <div class="card">
+                            <div class="card-title">
+                                <h3>Response Data:</h3>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                        <li><a class="dropdown-item" href="invoicecreate">Create New Invoice</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (propertyValues != null && propertyValues.Count > 0)
+                                {
+                                    <ul>
+                                        @foreach (var propertyValue in propertyValues)
+                                        {
+                                            <li>@propertyValue</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>@error</p>
+                                }
+                            </div>
+                            <div class="card-footer">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                        <li><a class="dropdown-item" href="invoicecreate">Create New Invoice</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@code {
+
+    private string transactionPageTitle = string.Empty;
+
+    private string error = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private FollowOnInvoiceTransResponse? followOnInvoiceTransResponse = new FollowOnInvoiceTransResponse();
+    private NtDecodeInstIdRequest ntDecodeInstIdRequest = new();
+    private RootToken rootToken = new();
+    private CcTransactionTypes currentTransaction;
+
+    private bool showUnifiedCheckout = false;
+    private bool showNewCheckout = false;
+    private bool showResultCard = false;
+    private bool showTokenCard = false;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+    private List<string> propertyValues = new List<string>();
+
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+        transactionPageTitle = sessionTransJson.CurrentTransactionType.ToString() + ": Follow on Transaction";
+
+        showResultCard = true;
+
+        followOnInvoiceTransResponse = JsonSerializer.Deserialize<FollowOnInvoiceTransResponse>(sessionTransJson!.TransactionJson!.ToString());
+
+        propertyValues = PropertiesProcessor.GetProperties(followOnInvoiceTransResponse!);
+
+        base.OnInitialized();
+    }
+
+}
+

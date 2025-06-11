@@ -1,0 +1,75 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<form id="payment_confirmation" method="post">
+    @foreach (var key in formValues.Keys)
+    {
+       <input type="hidden" id=@key name=@key value=@formValues[key]>
+       <div class="row mb-1">
+            <span>@key :</span>
+            <span>@formValues[key]</span>
+        </div>
+    }
+    <input type="submit" id="submit" value="Confirm" />
+</form>
+
+
+<iframe src="@CyberSourceUrl" width="100%" height="600px"></iframe>
+
+<script>
+    document.getElementById('submit').style.display = 'none';
+</script>
+
+<iframe src="https://testsecureacceptance.cybersource.com/pay" width="100%" height="600px"></iframe>
+
+
+@code {
+
+    /*
+    *
+    *
+    <script>
+    document.getElementById('submit').style.display = 'none';
+    </script>
+     */
+
+    [Parameter]
+    public SecureAcceptanceFields? secureAcceptanceFields { get; set; }
+
+    //<iframe src="@CyberSourceUrl" width="100%" height="600px"></iframe>
+
+    private bool showIFrame = false;
+
+    string CyberSourceUrl = "https://testsecureacceptance.cybersource.com/pay";
+
+    Dictionary<string, string> formValues = new();
+
+    protected override void OnInitialized()
+    {
+        // Create an instance of the Random class
+        Random random = new Random();
+
+        // Generate a random number between 10000000 and 99999999
+        int randomNumber = random.Next(10000000, 100000000);
+
+        double randomAmount = random.NextDouble() * 100;
+
+        randomAmount = Math.Round(randomAmount, 2);
+
+        formValues.Add("signed_field_names", "access_key,profile_id,transaction_uuid,signed_field_names,unsigned_field_names,signed_date_time,locale,transaction_type,reference_number,amount,currency");
+        formValues.Add("access_key", "4668ae2d6ec638899107cf534c3bd93d");
+        formValues.Add("profile_id", "SaDefault");
+        formValues.Add("transaction_uuid", SaSecurity.getUUID());
+        formValues.Add("locale", "en");
+        formValues.Add("unsigned_field_names", "");
+        formValues.Add("signed_date_time", SaSecurity.getUTCDateTime());
+        formValues.Add("transaction_type", "authorization");
+        formValues.Add("reference_number", "ZZZ891234");
+        formValues.Add("amount", "9.22");
+        formValues.Add("currency", "USD");
+        formValues.Add("signature", SaSecurity.sign(formValues));
+
+        StateHasChanged();
+
+    }
+
+}

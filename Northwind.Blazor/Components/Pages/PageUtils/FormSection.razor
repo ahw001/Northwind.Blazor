@@ -1,0 +1,20 @@
+﻿<div class="card card-brand mb-1 shadow">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-4">
+                <p class="text-secondary">@HelpText</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                @ChildContent
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = default!;
+    [Parameter] public string HelpText { get; set; } = default!;
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+}

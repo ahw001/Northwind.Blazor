@@ -1,0 +1,155 @@
+﻿@page "/uc-script"
+
+
+@inject ISessionTransactions sessionTransactions
+@inject IJSRuntime JS
+
+
+<h3>UC Script Test</h3>
+
+<hr class="my-4">
+
+<nav class="navbar navbar-expand-md navbar-dark sticky-top bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">Unified Checkout</a>
+    </div>
+</nav>
+<div class="container" role="main">
+    <div id="capture-context-display-container"></div>
+    <div class="row">
+        <div id="leftPanelContainer">
+            <h4>Shopping Cart (2 items)</h4>
+            <div class="cart-items">
+                <div class="cart-item">
+                    <div class="media-left">
+                        <a href="#">
+                            <img class="media-object" src="https://tinyurl.com/bdzaav2f" alt="Product 1" />
+                        </a>
+                    </div>
+                    <div class="cart-item-body">
+                        <h4 class="media-heading">Light Roast Coffee</h4>
+                        <p>Our lightest roast coffee, notes of berries and chocolate</p>
+                    </div>
+                </div>
+                <div class="cart-item">
+                    <div class="media-left">
+                        <a href="#">
+                            <img class="media-object" src="https://tinyurl.com/3xkhwtnb" alt="Product 2" />
+                        </a>
+                    </div>
+                    <div class="cart-item-body">
+                        <h4 class="media-heading">Pour Over</h4>
+                        <p>Brew the perfect cup</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="rightPanelContainer">
+            <div class="panel panel-default">
+                <div class="panel-body">
+                    <h4>Order Summary</h4>
+                    <p>Subtotal (2 items)<span class="pull-right">$ 20.00</span></p>
+                    <p>Shipping<span class="pull-right">$ 0.00</span></p>
+                    <p>Estimated tax (98074)<span class="pull-right">$ 1.00</span></p>
+                    <hr />
+                    <h4>Order Total<span class="pull-right">$ 21.00</span></h4>
+                    <hr />
+                    <div id="buttonPaymentListContainer">
+                        <button type="button" id="checkoutEmbedded" class="btn btn-lg btn-block btn-primary"
+                                disabled="disabled">
+                            Loading...
+                        </button>
+                        <button type="button" id="checkoutSidebar" class="btn btn-lg btn-block btn-primary"
+                                disabled="disabled">
+                            Loading...
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<form id="authForm" method="post" th:action="/token">
+    <input type="hidden" id="transientToken" name="transientToken" th:value="${transientToken}"/>
+</form>
+<input type="hidden" id="jwt" @bind="captureContextJwt" />
+<script src="https://apitest.cybersource.com/up/v1/assets/0.19.0/SecureAcceptance.js"></script>
+<script>
+    function executeAcceptScript(jwt) {
+        console.log("Inside Accept Script");
+        var showArgs = {
+            containers: {
+                paymentSelection: "#buttonPaymentListContainer"
+            }
+        };
+        console.log("Accept Script JWT");
+        console.log(jwt);
+        Accept(jwt).then(function (accept) {
+            return accept.unifiedPayments();
+        })
+            .then(function (up) {
+                return up.show(showArgs);
+            })
+            .then(function (tt) {
+                document.getElementById("transientToken").value = tt;
+                document.getElementById("authForm").submit();
+            });
+    }
+</script>
+
+
+
+
+@code {
+
+    private string? captureContextJwt;
+
+    private string error = string.Empty;
+
+    private string transactionPageTitle = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        if (_sessionTransactions.Transactions.Any())
+        {
+            sessionTransJson = _sessionTransactions.Transactions!.LastOrDefault()!;
+            captureContextJwt = sessionTransJson?.TransactionJson?.ToString() ?? "No Data";
+            Console.WriteLine($"captureContextJwt = {captureContextJwt}");
+        }
+        else
+        {
+            captureContextJwt = "eyJraWQiOiJ6dSIsImFsZyI6IlJTMjU2In0.eyJmbHgiOnsicGF0aCI6Ii9mbGV4L3YyL3Rva2VucyIsImRhdGEiOiI3UkRrOVZzTmJkdXA1cHF2WHBWMElSQUFFRDV0cURUanR5em9nMFpTTmwrVGNoclNkaFVhemZST1p3SmU5TkxCTkloQWRCZW9raEhZUjRKZFBLOHpHT1lsSUVFU3NEZWZyM3A2TGh1NXl3YTNXdVVmbTYwY0wrL29sblBwVG04QVc1b0wiLCJvcmlnaW4iOiJodHRwczovL3Rlc3RmbGV4LmN5YmVyc291cmNlLmNvbSIsImp3ayI6eyJrdHkiOiJSU0EiLCJlIjoiQVFBQiIsInVzZSI6ImVuYyIsIm4iOiJtbWZiZmZZTnZ4QkswVUd1d0F3NEgtbHBTSnVhVlctZ2NOeXlLVE9UY2lGbklGemlITEdjN3Q2Y0ZtR1BMQUZETV8wMEtTUHpJNjRzOHZqUDN1WFduUjZ5N0dHRnVOWm1lUC12MFlkMER6WEh4S0lLd0xsZi1YT2RnQS1SVTBJYlVsUVVWNXh5SWhuN3lsVVVjYjJNTlFxQWRPT0g4bTgwMjNpRjR2Z29FNHl3eDdWWllmaGV4LUZlMXYyR3hDQWpsLVFKbWI0VEtUTW5ZTkVuQXJYSW1Kallzbm41M3FnMTk0MnZVZ3M0SjlJMmtaLU95SnFBeFUyTy1ubGozd0pNcTVhQlV0V0pEWkc4eF9RWUVBcEp2ZTdxc2tncG5aNXN1RXduZkItWHZ3dkl4c0I3TjZEaFJoa3VBdld4QjI1MlVUczlqSjZxeXhWRDNaZUxiOWxiaFEiLCJraWQiOiIwODF3ZGJnWW1Sd3FDR1VrTDJEeWl3WVdJNmVieGc4eCJ9fSwiY3R4IjpbeyJkYXRhIjp7ImNsaWVudExpYnJhcnkiOiJodHRwczovL3Rlc3RmbGV4LmN5YmVyc291cmNlLmNvbS9taWNyb2Zvcm0vYnVuZGxlL3YyLjAvZmxleC1taWNyb2Zvcm0ubWluLmpzIiwiYWxsb3dlZENhcmROZXR3b3JrcyI6WyJWSVNBIiwiTUFFU1RSTyIsIk1BU1RFUkNBUkQiLCJBTUVYIiwiRElTQ09WRVIiLCJESU5FUlNDTFVCIiwiSkNCIiwiQ1VQIiwiQ0FSVEVTQkFOQ0FJUkVTIl0sInRhcmdldE9yaWdpbnMiOlsiaHR0cHM6Ly93d3cudGVzdC5jb20iXSwibWZPcmlnaW4iOiJodHRwczovL3Rlc3RmbGV4LmN5YmVyc291cmNlLmNvbSJ9LCJ0eXBlIjoibWYtMi4wLjAifV0sImlzcyI6IkZsZXggQVBJIiwiZXhwIjoxNzIxODU1ODAxLCJpYXQiOjE3MjE4NTQ5MDEsImp0aSI6InVYU0RXRlk0a1Ryck5PblgifQ.Kt5gsdXznmFW7aXPk1gxdZ6dCV2b_jD8FH1uaq4LpTmCfRpNliJqJlGtaqI4huBGrFhJPCCXDPDy3cSVEYnb13fx9gDHR26g94-XnlSjSwe5XTj7wLYKCpS9l-OpkIGm3ObirEvYEwcoemKNRFtUHEJi0wvOgGrHG-WeDP8qkDretL3mFuzUWxqaI0_pEsg-S95-Fc1QDFsRg5u4AzVMgiSQqB4yA3NBGtAfTxJ7Tnck18bIF8pzM-mIe8PQSa085cLyfoBN5N2uCJsT_aSzAchcRDkM4p942cy5j1lDMCOzDUn4HrrFfTZy6-PGqli2ptGmsAvRjfguz-cOGf3WOw";
+        }
+
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _sessionTransactions = sessionTransactions;
+
+            if (_sessionTransactions.Transactions.Any())
+            {
+                sessionTransJson = _sessionTransactions.Transactions!.LastOrDefault()!;
+                captureContextJwt = sessionTransJson?.TransactionJson?.ToString() ?? "No Data";
+                Console.WriteLine($"captureContextJwt = {captureContextJwt}");
+            }
+            else
+            {
+                captureContextJwt = "eyJraWQiOiJ6dSIsImFsZyI6IlJTMjU2In0.eyJmbHgiOnsicGF0aCI6Ii9mbGV4L3YyL3Rva2VucyIsImRhdGEiOiI3UkRrOVZzTmJkdXA1cHF2WHBWMElSQUFFRDV0cURUanR5em9nMFpTTmwrVGNoclNkaFVhemZST1p3SmU5TkxCTkloQWRCZW9raEhZUjRKZFBLOHpHT1lsSUVFU3NEZWZyM3A2TGh1NXl3YTNXdVVmbTYwY0wrL29sblBwVG04QVc1b0wiLCJvcmlnaW4iOiJodHRwczovL3Rlc3RmbGV4LmN5YmVyc291cmNlLmNvbSIsImp3ayI6eyJrdHkiOiJSU0EiLCJlIjoiQVFBQiIsInVzZSI6ImVuYyIsIm4iOiJtbWZiZmZZTnZ4QkswVUd1d0F3NEgtbHBTSnVhVlctZ2NOeXlLVE9UY2lGbklGemlITEdjN3Q2Y0ZtR1BMQUZETV8wMEtTUHpJNjRzOHZqUDN1WFduUjZ5N0dHRnVOWm1lUC12MFlkMER6WEh4S0lLd0xsZi1YT2RnQS1SVTBJYlVsUVVWNXh5SWhuN3lsVVVjYjJNTlFxQWRPT0g4bTgwMjNpRjR2Z29FNHl3eDdWWllmaGV4LUZlMXYyR3hDQWpsLVFKbWI0VEtUTW5ZTkVuQXJYSW1Kallzbm41M3FnMTk0MnZVZ3M0SjlJMmtaLU95SnFBeFUyTy1ubGozd0pNcTVhQlV0V0pEWkc4eF9RWUVBcEp2ZTdxc2tncG5aNXN1RXduZkItWHZ3dkl4c0I3TjZEaFJoa3VBdld4QjI1MlVUczlqSjZxeXhWRDNaZUxiOWxiaFEiLCJraWQiOiIwODF3ZGJnWW1Sd3FDR1VrTDJEeWl3WVdJNmVieGc4eCJ9fSwiY3R4IjpbeyJkYXRhIjp7ImNsaWVudExpYnJhcnkiOiJodHRwczovL3Rlc3RmbGV4LmN5YmVyc291cmNlLmNvbS9taWNyb2Zvcm0vYnVuZGxlL3YyLjAvZmxleC1taWNyb2Zvcm0ubWluLmpzIiwiYWxsb3dlZENhcmROZXR3b3JrcyI6WyJWSVNBIiwiTUFFU1RSTyIsIk1BU1RFUkNBUkQiLCJBTUVYIiwiRElTQ09WRVIiLCJESU5FUlNDTFVCIiwiSkNCIiwiQ1VQIiwiQ0FSVEVTQkFOQ0FJUkVTIl0sInRhcmdldE9yaWdpbnMiOlsiaHR0cHM6Ly93d3cudGVzdC5jb20iXSwibWZPcmlnaW4iOiJodHRwczovL3Rlc3RmbGV4LmN5YmVyc291cmNlLmNvbSJ9LCJ0eXBlIjoibWYtMi4wLjAifV0sImlzcyI6IkZsZXggQVBJIiwiZXhwIjoxNzIxODU1ODAxLCJpYXQiOjE3MjE4NTQ5MDEsImp0aSI6InVYU0RXRlk0a1Ryck5PblgifQ.Kt5gsdXznmFW7aXPk1gxdZ6dCV2b_jD8FH1uaq4LpTmCfRpNliJqJlGtaqI4huBGrFhJPCCXDPDy3cSVEYnb13fx9gDHR26g94-XnlSjSwe5XTj7wLYKCpS9l-OpkIGm3ObirEvYEwcoemKNRFtUHEJi0wvOgGrHG-WeDP8qkDretL3mFuzUWxqaI0_pEsg-S95-Fc1QDFsRg5u4AzVMgiSQqB4yA3NBGtAfTxJ7Tnck18bIF8pzM-mIe8PQSa085cLyfoBN5N2uCJsT_aSzAchcRDkM4p942cy5j1lDMCOzDUn4HrrFfTZy6-PGqli2ptGmsAvRjfguz-cOGf3WOw";
+            }
+            var jwt = captureContextJwt;
+            Console.WriteLine($"In OnAfterRenderAsync");
+            await JS.InvokeVoidAsync("executeAcceptScript", jwt);
+        }
+    }
+}

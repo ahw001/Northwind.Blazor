@@ -1,0 +1,16 @@
+{
+  "clientReferenceInformation": {
+    "code": "TC50171_3"
+  },
+  "paymentInformation": {
+    "paymentInstrument": {
+      "id": "7424261836136761303812"
+    }
+  },
+  "orderInformation": {
+    "amountDetails": {
+      "totalAmount": "102.21",
+      "currency": "USD"
+    }
+  }
+}

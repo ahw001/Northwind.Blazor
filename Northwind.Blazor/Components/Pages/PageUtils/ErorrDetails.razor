@@ -1,0 +1,84 @@
+﻿@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+@if (Show)
+{
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasExample" aria-labelledby="offcanvasExampleLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="offcanvasExampleLabel">Error Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div>
+                @if (_transactionJson is null)
+                {
+                    <p>No Error Data Detected</p>
+                }
+                else
+                {
+                    @if (propertyValues != null && propertyValues.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var propertyValue in propertyValues)
+                            {
+                                <li>@propertyValue</li>
+                            }
+                        </ul>
+                    }
+                }
+
+            </div>
+            <div>
+                <button class="btn btn-primary" type="button" onclick="window.location.href='checkout';">
+                    Return to Checkout
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+
+    private JsonNode? _transactionJson;
+
+    [Parameter]
+    public bool Show { get; set; } = false;
+
+    [Parameter] 
+    public JsonNode? TransactionJson { get; set; }
+
+
+    private List<string> propertyValues = new List<string>();
+
+    private AuthTransResponse? authTransResponse = new();
+
+    protected override void OnParametersSet()
+    {
+
+        if (TransactionJson != null)
+        {
+            _transactionJson = TransactionJson;
+            Show = true;
+
+
+            authTransResponse = JsonSerializer.Deserialize<AuthTransResponse>(_transactionJson.ToString());
+
+            propertyValues = PropertiesProcessor.GetProperties(authTransResponse!);
+
+        }
+    }
+
+    private void Close()
+    {
+        //_transactionJson = null;
+        Show = false;
+    }
+
+    public void ReturnToCheckout()
+    {
+        Console.WriteLine("ReturnToCheckout Method Invoked");        
+        Navigation.NavigateTo("/checkout");
+        Show = false;
+    }
+}
+

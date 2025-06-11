@@ -1,0 +1,127 @@
+﻿@page "/simplejson"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h3>Simple JSON Processor</h3>
+
+<div class="container-fluid">
+    <main>
+
+        <FormSection Title="Use Defaults" HelpText="">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="col-md-10">
+                        <label for="key" class="form-label">Key</label>
+                        <InputText @bind-Value="simpleJsonObject!.Key" class="form-control" id="key" placeholder="" />
+                    </div>
+                    <div class="col-md-10">
+                        <label for="resource" class="form-label">URL Resource - Leave Off Base</label>
+                        <InputText @bind-Value="simpleJsonObject!.Resource" class="form-control" id="resource" placeholder="" />
+                    </div>
+                    <div class="col-md-10">
+                        <label for="value" class="form-label">JSON Value:</label>
+                        <InputTextArea style="width: 600px; height: 400px;" @bind-Value="simpleJsonObject!.Value" class="form-control" id="value" placeholder="" />
+                    </div>
+                </div>
+            </div>
+        </FormSection>
+        
+        <hr class="my-4">
+
+        <button class="btn btn-primary" type="button" @onclick="Submit">
+            SUBMIT JSON FOR PROCESSING
+        </button>
+
+        <hr class="my-4">
+        <br />
+
+    </main>
+</div>
+
+@if (error != null)
+{
+    <p class="text-danger">@error</p>
+}
+
+@code {
+
+    public bool Show { get; set; } = true;
+
+
+    private string? error;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private CcTransactionTypes ccTransactionType = new CcTransactionTypes();
+    private SessionTransJson sessionTransJson = new();
+
+    private JsonNode? _transactionJson = null;
+    
+    private SimpleJsonObject simpleJsonObject = new SimpleJsonObject();
+
+    protected override void OnInitialized()
+    {
+        Console.WriteLine("SimpleJsonProcessor.OnInitialized()");
+    }
+
+    private async Task Submit()
+    {
+        try
+        {
+
+            ccTransactionType = CcTransactionTypes.SIMPLE_STRING;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            string jsonString = JsonSerializer.Serialize(simpleJsonObject, options);
+
+            // POST FOR SIMPLE JSON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, ccTransactionType);
+
+            // POST FOR SIMPLE JSON TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && sessionResponse.TransactionStatus.Contains("error", StringComparison.OrdinalIgnoreCase))
+            {
+                error = "Error: " + sessionResponse.TransactionJson;
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse!.error is not null && sessionResponse!.error.Contains("error", StringComparison.OrdinalIgnoreCase))
+            {
+                error = "Error: " + sessionResponse.TransactionJson;
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.TransactionJson;
+
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/processfollowon");
+            }
+            else
+            {
+                error = "Error: No response from server";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+}
+

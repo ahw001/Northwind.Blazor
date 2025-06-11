@@ -1,0 +1,227 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/aftpacheckenroll"
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>@transactionPageTitle</h1>
+
+@if (showResultCard)
+{
+    <FormSection Title="Customer Information" HelpText="">
+        <div class="container">
+            <div class="row align-items-start">
+                <button class="btn btn-primary" type="button" @onclick="SubmitForFollowOn">
+                    SUBMIT FOR CHECK ENROLLMENT
+                </button>
+                <div class="col d-flex">
+                    <div class="col-8 m-1">
+                        <div class="card">
+                            <div class="card-body">
+                                <h3>Response Data:</h3>
+                                <div class="card-title">
+                                </div>
+                                <div class="card-body">
+                                    @if (propertyValues != null && propertyValues.Count > 0)
+                                    {
+                                        <ul>
+                                            @foreach (var propertyValue in propertyValues)
+                                            {
+                                                <li>@propertyValue</li>
+                                            }
+                                        </ul>
+                                    }
+                                    else
+                                    {
+                                        <p>@error</p>
+                                    }
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <div>
+                                    <button class="btn btn-primary" type="button" @onclick="SubmitForFollowOn">
+                                        SUBMIT FOR CHECK ENROLLMENT
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </FormSection>
+}
+
+@code {
+
+    private string transactionPageTitle = string.Empty;
+
+    private string error = string.Empty;
+
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private CcTransactionTypes currentTransaction;
+    private CcTransactionTypes originalTransaction;
+    private JwtPayload tokenPayload = new JwtPayload();
+    private B2cCustomer b2CCustomer = new();
+    private ConsumerAuthenticationInformation consumerAuthenticationInformation = new();
+    private AftCheckEnrollDto aftCheckEnrollDto = new AftCheckEnrollDto();
+
+    private bool showResultCard = false;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+    private List<string> propertyValues = new List<string>();
+
+    private JsonNode? _transactionJson = null;
+
+    protected override void OnInitialized()
+    {
+        currentTransaction = CcTransactionTypes.PA_ENROLL;
+
+        sessionTransJson = sessionTransactions.Transactions.LastOrDefault()!;
+
+        transactionPageTitle = sessionTransJson.CurrentTransactionType.ToString() + ": Follow on Transaction";
+
+        if (sessionTransJson is not null && sessionTransJson.Customer is not null
+         && sessionTransJson.Customer.AmountDetails is not null)
+        {
+            showResultCard = true;
+
+            aftCheckEnrollDto.BuyerInformation = new();
+            aftCheckEnrollDto.SenderInformation = new();
+            aftCheckEnrollDto.OrderInformation = new();
+            aftCheckEnrollDto.OrderInformation.BillTo = new();
+            aftCheckEnrollDto.OrderInformation.AmountDetails = new();
+            aftCheckEnrollDto.ConsumerAuthenticationInformation = new();
+            aftCheckEnrollDto.TokenInformation = new TokenInformation();
+
+            if (sessionTransJson is not null && sessionTransJson.TransientToken is not null 
+                && sessionTransJson.Customer is not null)
+            {
+                b2CCustomer = sessionTransJson.Customer!;
+
+                aftCheckEnrollDto.BuyerInformation.MobilePhone = b2CCustomer.Phone ?? null;
+                aftCheckEnrollDto.OrderInformation.AmountDetails.Currency = b2CCustomer.Currency;
+                aftCheckEnrollDto.OrderInformation.AmountDetails.TotalAmount = b2CCustomer.TotalAmount.HasValue ? b2CCustomer.TotalAmount.Value.ToString("0.00") : "0.00";
+                aftCheckEnrollDto.OrderInformation.BillTo!.Address1 = b2CCustomer.Address1 ?? null;
+                aftCheckEnrollDto.OrderInformation.BillTo!.AdministrativeArea = b2CCustomer.AdministrativeArea ?? null;
+                aftCheckEnrollDto.OrderInformation.BillTo!.Locality = b2CCustomer.City ?? null;
+                aftCheckEnrollDto.OrderInformation.BillTo!.Country = b2CCustomer.Country ?? null;
+                aftCheckEnrollDto.OrderInformation.BillTo!.PostalCode = b2CCustomer.PostalCode ?? null;
+                aftCheckEnrollDto.OrderInformation.BillTo!.FirstName = b2CCustomer.FirstName ?? null;
+                aftCheckEnrollDto.OrderInformation.BillTo!.LastName = b2CCustomer.LastName ?? null;
+                aftCheckEnrollDto.OrderInformation.BillTo!.Email = b2CCustomer.Email ?? null;
+                aftCheckEnrollDto.TokenInformation.TransientToken = sessionTransJson!.TransientToken!;
+                aftCheckEnrollDto.SenderInformation.FirstName = b2CCustomer.FirstName ?? null;
+                aftCheckEnrollDto.SenderInformation.LastName = b2CCustomer.LastName ?? null;
+                aftCheckEnrollDto.SenderInformation.Address1 = b2CCustomer.Address1 ?? null;
+                aftCheckEnrollDto.SenderInformation.Locality = b2CCustomer.City ?? null;
+                aftCheckEnrollDto.SenderInformation.CountryCode = b2CCustomer.Country ?? null;
+                aftCheckEnrollDto.SenderInformation.AdministrativeArea = b2CCustomer.AdministrativeArea ?? null;
+
+
+                if (sessionTransJson.TransactionJson is not null &&
+                    sessionTransJson.TransactionJson["consumerAuthenticationInformation"] is JsonNode consumerAuthInfoNode)
+                {
+                    // Now you have the ConsumerAuthenticationInformation node
+                    // You can work with it here
+
+
+
+                    Console.WriteLine(consumerAuthInfoNode.ToJsonString());
+                    string jsonString = consumerAuthInfoNode.ToJsonString();
+
+                    consumerAuthenticationInformation = JsonSerializer.Deserialize<ConsumerAuthenticationInformation>(jsonString)!;
+
+                    aftCheckEnrollDto.ConsumerAuthenticationInformation.ReferenceId = consumerAuthenticationInformation.ReferenceId;
+                    aftCheckEnrollDto.ConsumerAuthenticationInformation.TransactionMode = "eCommerce";
+                    aftCheckEnrollDto.ConsumerAuthenticationInformation.DeviceChannel = "BROWSER";
+                    aftCheckEnrollDto.ConsumerAuthenticationInformation.ReturnUrl = "https://localhost:7133/stepup-callback";
+
+                }
+                else
+                {
+                    Console.WriteLine("ConsumerAuthenticationInformation not found or TransactionJson is null.");
+                }
+
+                propertyValues = PropertiesProcessor.GetProperties(aftCheckEnrollDto!);
+
+            }
+            else
+            {
+                error = "No data found.";
+            }
+        }
+
+        base.OnInitialized();
+    }
+
+    private async Task SubmitForFollowOn()
+    {
+        try
+        {
+
+            currentTransaction = CcTransactionTypes.FLEX_AFT_CHECK_ENROLL_AUTH;
+            originalTransaction = CcTransactionTypes.FLEX_AFT_CHECK_ENROLL_AUTH;
+
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(aftCheckEnrollDto, options);
+
+            // POST FOR PA ENROLL TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, sessionTransactions, currentTransaction);
+
+            // POST FOR PA ENROLL TRANSACTION *******
+
+            if (currentTransaction != CcTransactionTypes.FLEX_AFT_CHECK_ENROLL_AUTH && sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Error)
+            {
+                showResultCard = false;
+                var jsonNode = sessionResponse.TransactionJson;
+
+                string statusNode = (string)jsonNode!["status"]!;
+
+                error = "Error: " + statusNode;
+                sessionResponse = new();
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                //sessionTransactions.DeleteAll();
+                sessionTransactions.AddTrans(sessionResponse);
+                _transactionJson = sessionResponse.TransactionJson;
+
+                Navigation.NavigateTo("/paprocessor");
+            }
+            else
+            {
+                error = "Error: " + "No or bad response from server";
+                sessionResponse = new();
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            showResultCard = true;
+            //showFieldCard = false;
+        }
+    }
+}
+
+

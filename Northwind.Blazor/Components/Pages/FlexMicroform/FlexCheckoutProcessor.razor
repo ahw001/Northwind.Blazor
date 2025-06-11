@@ -1,0 +1,134 @@
+﻿@page "/flexprocessor"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ICustomersScoped custTransFormDto
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+
+<h3>Flex Form Processor</h3>
+
+<div class="container">
+    <div class="row row-cols-1 row-cols-md-2 gy-4">
+        @if (showFlexToken)
+        {
+            <div class="col-sm-6 mb-3 mb-sm-0">
+                <div class="card">
+                    <div class="card-title">
+                        <h3>Response Data for Flex Token:</h3>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="flexform">Complete Flex Checkout</a></li>
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    <div class="card-body">
+                        @if (tokenPayload != null)
+                        {
+                            <ul>
+                                @foreach (var claim in tokenPayload.Claims)
+                                {
+                                    <li>@claim</li>
+                                }
+                                return tokenPayload.ToString()!;
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                    <div class="card-footer">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="unifiedform">Complete Flex Transaction</a></li>
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+
+    private string transactionPageTitle = string.Empty;
+
+    private string error = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private FlexRoot? flexRoot = new FlexRoot();
+    private RootToken rootToken = new();
+    private CcTransactionTypes currentTransaction;
+    private JwtPayload tokenPayload = new JwtPayload();
+    private CaptureContextDto captureContextDto = new CaptureContextDto();
+
+    private bool showFlexToken = false;
+    private bool showFlexHeader = false;
+
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+    private List<string> flexHeaderValues = new List<string>();
+    private List<string> flexTokenValues = new List<string>();
+    private List<string> propertyValues = new List<string>();
+    private List<string> propertyValues1 = new List<string>();
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+        transactionPageTitle = sessionTransJson.CurrentTransactionType.ToString() + ": Follow on Transaction";
+
+        if (sessionTransJson.TransactionJson is not null)
+        {
+            try
+            {
+                captureContextDto = new();
+
+                showFlexToken = true;
+                showFlexHeader = true;
+                currentTransaction = (CcTransactionTypes)sessionTransJson.CurrentTransactionType!;
+
+                captureContextDto = JsonSerializer.Deserialize<CaptureContextDto>(sessionTransJson.TransactionJson)!;
+
+                string token = captureContextDto.Ctx!;
+                var handler = new JwtSecurityTokenHandler();
+                var jsonToken = handler.ReadJwtToken(token);
+                tokenPayload = jsonToken.Payload;
+
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                flexRoot!.Error = $"Exception: {error}";
+                propertyValues = PropertiesProcessor.GetProperties(flexRoot!);
+            }
+
+        }
+        StateHasChanged();
+    }
+}

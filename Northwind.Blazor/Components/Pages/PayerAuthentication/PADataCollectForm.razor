@@ -1,0 +1,212 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/padatacollect"
+
+@inject IJSRuntime JSRuntime
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<title>Payer Authentication Data Collection</title>
+
+<div class="container">
+    <main>
+        <div class="py-5 text-center">
+            <h2>Payer Authentication Data Collection</h2>
+        </div>
+
+        <input type="hidden" id="jwtElement" @bind="jwt" />
+
+    </main>
+</div>
+
+@if (showInitialForm)
+{ 
+    @if (!string.IsNullOrEmpty(jwt))
+    {
+
+        <p><b>JWT Loaded Executing Data Collection ... </b></p>
+
+        <iframe id="cardinal_collection_iframe" name="collectionIframe" height="10" width="10" style="display:none;"></iframe>
+        <form id="cardinal_collection_form" method="POST" target="collectionIframe" action="https://centinelapistag.cardinalcommerce.com/V1/Cruise/Collect">
+            <input id="cardinal_collection_form_input" type="hidden" name="JWT" value="@jwt">
+        </form>
+    }
+    else
+    {
+        <p>Waiting for JWT to be loaded...</p>
+    }
+}
+@if (showDataCollectionForm)
+{
+    <div class="card">
+        <div class="card-body">
+            <div class="card">
+                <div class="card-title">
+                    <h3>Response Data:</h3>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Follow on Actions
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="pacheckenroll">Payer Auth Check Enrollment</a></li>
+                            <li><a class="dropdown-item" href="aftpacheckenroll">Payer Auth Check Enrollment with AFT</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (propertyValues != null && propertyValues.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var propertyValue in propertyValues)
+                            {
+                                <li>@propertyValue</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p>@error</p>
+                    }
+                </div>
+                <div class="card-footer">
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Follow on Actions
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="pacheckenroll">Payer Auth Check Enrollment</a></li>
+                            <li><a class="dropdown-item" href="aftpacheckenroll">Payer Auth Check Enrollment with AFT</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<script>
+    var dotNetObjectReference = null;
+
+    window.setDotNetReference = function (dotNetHelper) {
+    dotNetObjectReference = dotNetHelper;
+    console.log("dotNetObjectReference set.");
+    };
+
+    window.executeJSCardinalScript = function () {
+    var cardinalForm = document.getElementById('cardinal_collection_form');
+    if (cardinalForm) {
+    console.log('Cardinal Form found — submitting form.');
+    cardinalForm.submit();
+    } else {
+    console.log('Cardinal Form NOT found — cannot submit.');
+    }
+    };
+
+    window.addEventListener("message", function (event) {
+    if (event.origin === "https://centinelapistag.cardinalcommerce.com") {
+    console.log("**********************************************");
+    console.log("Received message from iframe: \n");
+    console.log(event.data);
+    if (dotNetObjectReference) {
+    dotNetObjectReference.invokeMethodAsync('ReceiveDataCollectionResponse', event.data);
+    } else {
+    console.error('dotNetObjectReference is not set.');
+    }
+    }
+    }, false);
+</script>
+
+
+<br />
+
+@code {
+    private DotNetObjectReference<PADataCollectForm>? _dotNetRef;
+    private string? jwt;
+    private string? error;
+    private string? dataCollectionResponse = string.Empty;
+
+    private PASetupResponse pASetupResponse = new();
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new();
+    private DeviceDataCollectionInformation deviceDataCollectionInformation = new();
+
+    private List<string> propertyValues = new List<string>();
+
+    private bool showInitialForm = true;
+    private bool showDataCollectionForm = false;
+    private bool jwtReady = false;
+
+
+    [Parameter, EditorRequired] public EventCallback<JsonNode> OnSelected { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _dotNetRef = DotNetObjectReference.Create(this);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _sessionTransactions = sessionTransactions;
+
+            await JSRuntime.InvokeVoidAsync("setDotNetReference", _dotNetRef);
+
+            if (_sessionTransactions.Transactions.Any())
+            {
+                sessionTransJson = _sessionTransactions.Transactions!.LastOrDefault()!;
+                pASetupResponse = JsonSerializer.Deserialize<PASetupResponse>(sessionTransJson.TransactionJson)!;
+                jwt = pASetupResponse.ConsumerAuthenticationInformation!.AccessToken!;
+
+                jwtReady = true;                // ✅ Tell Blazor we now have the JWT.
+                StateHasChanged();             // 🔄 Force the re-render so the form shows up.
+                return;                        // 🛑 Exit now, wait for re-render.
+            }
+            else
+            {
+                error = "No Data";
+            }
+        }
+
+        // ✅ Only run AFTER the re-render where jwtReady is true and JWT is not empty.
+        if (jwtReady && !string.IsNullOrEmpty(jwt))
+        {
+            jwtReady = false;                  // Prevent this from running multiple times.
+            await Task.Delay(200);            // Tiny delay to ensure DOM is fully updated.
+            await ExecuteCardinalScript();   // Call JS to submit the form.
+        }
+    }
+
+    public async Task ExecuteCardinalScript()
+    {
+        Console.WriteLine("Calling executeJSCardinalScript...");
+        await JSRuntime.InvokeVoidAsync("executeJSCardinalScript");
+    }
+
+    [JSInvokable]
+    public void ReceiveDataCollectionResponse(string dataCollectResponse)
+    {
+        Console.WriteLine($"Data Collection Reponse: {dataCollectResponse}");
+        // Handle data collection response
+        if (dataCollectResponse != null)
+        {
+            showDataCollectionForm = true;
+            showInitialForm = false;
+
+            dataCollectionResponse = dataCollectResponse;
+
+            deviceDataCollectionInformation = JsonSerializer.Deserialize<DeviceDataCollectionInformation>(dataCollectionResponse)!;
+
+            propertyValues = PropertiesProcessor.GetProperties(deviceDataCollectionInformation!);
+        }
+        else
+        {
+            error = "No Data Collection Event Recorded";
+        }
+        StateHasChanged();
+    }
+
+}

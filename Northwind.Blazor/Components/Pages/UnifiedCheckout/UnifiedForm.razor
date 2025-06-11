@@ -1,0 +1,310 @@
+﻿@page "/unifiedform"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+@inject ISessionTransactions sessionTransactions
+
+<PageTitle>Unified Checkout Form</PageTitle>
+
+<script src="Components/Pages/UnifiedCheckout/UnifiedForm.razor.js"></script>
+
+<hr class="my-4">
+@if (showInitialForm) 
+{
+    <nav class="navbar navbar-expand-md navbar-dark sticky-top bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">Unified Checkout</a>
+        </div>
+    </nav>
+    <GetImages></GetImages>
+    <div id="buttonPaymentListContainer">
+        <button type="button" id="checkoutSidebar" class="btn btn-lg btn-block btn-primary"
+                disabled="disabled">
+            Loading...
+        </button>
+    </div>
+}
+
+@if (showTransToken)
+{
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                @if (decodedTransientToken is not null)
+                {
+                    <h4>Transient Token</h4>
+                    @foreach (var propertyValue in decodedTransientToken)
+                    {
+                        <span>@propertyValue</span>
+                    }
+                    <hr class="my-4">
+                    <button class="btn btn-primary" type="button" @onclick="SubmitTransTokenPayment">
+                        SUBMIT FOR AUTHORIZATION
+                    </button>
+                }
+                else
+                {
+                    <h4>Error</h4>
+                    <p>@error</p>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Follow on Actions
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="void">New Unified Checkout</a></li>
+                            <li><a class="dropdown-item" href="/">Home</a></li>
+                        </ul>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<hr class="my-4">
+
+<input type="hidden" id="jwt" @bind="jwt" />
+<input type="hidden" id="transientToken" />
+
+<script src="https://apitest.cybersource.com/up/v1/assets/0.19.1/SecureAcceptance.js" onload="scriptLoaded()"></script>
+<script>
+    window.scriptIsLoaded = false; // Global flag
+
+    function scriptLoaded() {
+        console.log("SecureAcceptance.js has loaded");
+        window.scriptIsLoaded = true; // Set the flag when script is loaded
+    }
+
+    function executeAcceptScript(dotNetObjectReference, jwt) {
+        if (!window.scriptIsLoaded) {
+            console.log("SecureAcceptance.js is not loaded yet.");
+            return;
+        }
+        console.log("Inside Accept Script");
+
+        Accept(jwt).then(function (accept) {
+            console.log("Accept function:", accept);
+            return accept.unifiedPayments();
+        }).then(function (up) {
+            console.log("UnifiedPayments instance:", up);
+            return up.show({
+                containers: {
+                    paymentSelection: "#buttonPaymentListContainer"
+                }
+            });
+        }).then(function (tt) {
+            console.log("Transient Token:", tt);
+            transientToken.value = tt;
+            dotNetObjectReference.invokeMethodAsync('ReceiveTransientToken', tt);
+        }).catch(function (error) {
+            console.error("Error in executeAcceptScript:", error);
+        });
+    }
+
+</script>
+
+@code {
+
+    private string? jwt;
+    private string? error = null;
+    private string? transientCtxToken;
+
+    public Dictionary<string, string>? decodedTransientToken { get; private set; }
+
+    private DotNetObjectReference<UnifiedForm>? _dotNetRef;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private B2cCustomer b2CCustomer = new B2cCustomer();
+    private CaptureContextDto captureContextDto = new CaptureContextDto();
+
+    private CcTransactionTypes currentTransaction;
+
+    private bool showInitialForm = true;
+    private bool showTransToken = false;
+
+    private JsonNode? _transactionJson = null;
+
+    protected override void OnInitialized()
+    {
+        _dotNetRef = DotNetObjectReference.Create(this);
+    }
+
+    protected override void OnParametersSet()
+    {
+        StateHasChanged();
+        base.OnParametersSet();
+    }
+
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _sessionTransactions = sessionTransactions;
+
+            if (_sessionTransactions.Transactions.Any())
+            {
+                sessionTransJson = _sessionTransactions.Transactions!.LastOrDefault()!;
+
+                captureContextDto = JsonSerializer.Deserialize<CaptureContextDto>(sessionTransJson.TransactionJson)!;
+
+                jwt = captureContextDto.Ctx;
+                b2CCustomer = sessionTransJson?.Customer!;
+            }
+            else
+            {
+                error = "No Data";
+                showInitialForm = false;
+                showTransToken = true;
+            }
+
+            while (!await JSRuntime.InvokeAsync<bool>("eval", "window.scriptIsLoaded"))
+            {
+                await Task.Delay(100); // Check every 100 milliseconds
+            }
+            await JSRuntime.InvokeVoidAsync("executeAcceptScript", _dotNetRef, jwt);
+        }
+    }
+
+    [JSInvokable]
+    public void ReceiveTransientToken(string tt)
+    {
+        Console.WriteLine($"Transient Token received: {tt}");
+        // Handle the token as needed
+        if (tt != null)
+        {
+            //sessionTransactions.DeleteAll();
+
+            decodedTransientToken = JWTItems.DecodeJWT(tt);
+
+            transientCtxToken = tt;
+            sessionTransJson.TransientToken = transientCtxToken;
+
+            sessionTransactions.AddTrans(sessionTransJson);
+
+            foreach (var kvp in decodedTransientToken)
+            {
+                Console.WriteLine($"Decoded Transient Token Key: {kvp.Key}, Value: {kvp.Value}");
+            }
+
+            showTransToken = true;
+            showInitialForm = false;
+        }
+        else
+        {
+            error = "No Transient Token received";    
+        }
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Safely extracts the total authorized amount from b2CCustomer's Cart LineItems' UnitPrice.
+    /// Returns "0.00" if not available or empty.
+    /// </summary>
+    private string GetAuthorizedAmountFromCart()
+    {
+        // Defensive: Check for nulls and empty collections
+        if (b2CCustomer?.Cart == null || !b2CCustomer.Cart.Any())
+            return "0.00";
+
+        // Sum all UnitPrice values, treating null as 0
+        decimal total = b2CCustomer.Cart
+            .Where(product => product != null)
+            .Sum(product => product.UnitPrice ?? 0m);
+
+        // Format as string with two decimal places
+        return total.ToString("F2");
+    }
+
+    public async void SubmitTransTokenPayment()
+    {
+        string response = string.Empty;
+
+        CtxPaymentDto ctxPaymentDto = new();
+
+        Guid guid = Guid.NewGuid();
+
+        ctxPaymentDto.TokenInformation!.TransientTokenJwt = transientCtxToken;
+        ctxPaymentDto.ClientReferenceInformation!.Code = guid.ToString();
+        ctxPaymentDto.B2cCustomerId = captureContextDto.B2cCustomerId;
+        ctxPaymentDto.OrderId = captureContextDto.OrderId;
+        ctxPaymentDto.OrderInformation!.BillTo!.FirstName = b2CCustomer?.FirstName ?? string.Empty;
+        ctxPaymentDto.OrderInformation.BillTo!.LastName = b2CCustomer?.LastName ?? string.Empty;
+        ctxPaymentDto.OrderInformation.BillTo!.Email = b2CCustomer?.Email ?? string.Empty;
+        ctxPaymentDto.OrderInformation.BillTo!.PhoneNumber = b2CCustomer?.Phone ?? string.Empty;
+        ctxPaymentDto.OrderInformation.BillTo!.Address1 = b2CCustomer?.Address1 ?? string.Empty;
+        ctxPaymentDto.OrderInformation.BillTo!.Locality = b2CCustomer?.City ?? string.Empty;
+        ctxPaymentDto.OrderInformation.BillTo!.AdministrativeArea = b2CCustomer?.AdministrativeArea ?? string.Empty;
+        ctxPaymentDto.OrderInformation.BillTo!.PostalCode = b2CCustomer?.PostalCode ?? string.Empty;
+        ctxPaymentDto.OrderInformation.BillTo!.Country = b2CCustomer?.Country ?? string.Empty;
+
+
+        // Use the new method to set AuthorizedAmount
+        ctxPaymentDto.OrderInformation!.AmountDetails!.AuthorizedAmount = GetAuthorizedAmountFromCart();
+
+        //sessionTransJson = new();
+
+        sessionTransJson.CurrentTransactionType = CcTransactionTypes.UNIFIED_CHECKOUT_PAYMENT;
+        currentTransaction = CcTransactionTypes.UNIFIED_CHECKOUT_PAYMENT;
+
+        // Serialize the object into a string for submission
+
+        var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+        string jsonString = JsonSerializer.Serialize(ctxPaymentDto, options);
+
+        try
+        {
+            // POST FOR UNIFIED CHECKOUT PAYMENT TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType);
+
+            // POST FOR UNIFIED CHECKOUT PAYMENT TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && (sessionResponse.TransactionStatus.Contains("error", StringComparison.OrdinalIgnoreCase) || sessionResponse.TransactionStatus.Contains("exception", StringComparison.OrdinalIgnoreCase)))
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && (sessionResponse.TransactionStatus.Contains("INVALID", StringComparison.OrdinalIgnoreCase) || sessionResponse.TransactionStatus.Contains("DECLINED", StringComparison.OrdinalIgnoreCase)))
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.CurrentTransactionType == CcTransactionTypes.UNIFIED_CHECKOUT_PAYMENT ? sessionResponse.TransactionJson : null;
+                _transactionJson = sessionResponse.TransactionJson;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/processfollowon");
+            }
+            else
+            {
+                error = "Error: No response from server";
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+    }
+
+}

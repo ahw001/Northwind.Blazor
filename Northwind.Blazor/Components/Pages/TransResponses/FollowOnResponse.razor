@@ -1,0 +1,481 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/processfollowon"
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>@transactionPageTitle</h1>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mb-2">
+            <div class="card">
+                <div class="card-body">
+                    @if (showResultCard || showUnifiedCheckout)
+                    {
+                        <div class="card">
+                            <div class="card-title"><h3>Response Data:</h3>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="capture">Capture</a></li>
+                                        <li><a class="dropdown-item" href="reversal">Reversal</a></li>
+                                        <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                        <li><a class="dropdown-item" href="transtokenretrieve">Transient Token Retrieval</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (propertyValues != null && propertyValues.Count > 0)
+                                {
+                                    <ul>
+                                        @foreach (var propertyValue in propertyValues)
+                                        {
+                                            <li>@propertyValue</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>@error</p>
+                                }
+                            </div>
+                            <div class="card-footer">
+                                @if (showTokenCard)
+                                {
+                                    <button class="btn btn-primary" type="button" @onclick="SubmitForTokenDecryption">
+                                        DECRYPT TOKEN
+                                    </button>
+                                }
+                                else
+                                {
+                                    <div class="dropdown">
+                                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            Follow on Actions
+                                        </button>
+                                        @if (showUnifiedCheckout)
+                                        {
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="capture">Capture</a></li>
+                                                <li><a class="dropdown-item" href="reversal">Reversal</a></li>
+                                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                                <li><a class="dropdown-item" href="transtokenretrieve">Transient Token Retrieval</a></li>
+                                            </ul>
+                                        }
+                                        else if (showResultCard)
+                                        {
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="void">Void</a></li>
+                                                <li><a class="dropdown-item" href="refundform">Refund</a></li>
+                                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                            </ul>
+                                        }
+                                        else
+                                        {
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                            </ul>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    @if (showPaResponse)
+                    {
+                        <div class="card">
+                            <div class="card-title">
+                                <h3>Response Data:</h3>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="padatacollect">Payer Auth Data Collect</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (propertyValues != null && propertyValues.Count > 0)
+                                {
+                                    <ul>
+                                        @foreach (var propertyValue in propertyValues)
+                                        {
+                                            <li>@propertyValue</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>@error</p>
+                                }
+                            </div>
+                            <div class="card-footer">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="padatacollect">Payer Auth Data Collect</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    @if (showStandaloneCredit)
+                    {
+                        <div class="card">
+                            <div class="card-title">
+                                <h3>Response Data:</h3>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="void">Void</a></li>
+                                        <li><a class="dropdown-item" href="standalonecredit">New Stand Alone Credit</a></li>
+                                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (propertyValues != null && propertyValues.Count > 0)
+                                {
+                                    <ul>
+                                        @foreach (var propertyValue in propertyValues)
+                                        {
+                                            <li>@propertyValue</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>@error</p>
+                                }
+                            </div>
+                            <div class="card-footer">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="void">Void</a></li>
+                                        <li><a class="dropdown-item" href="standalonecredit">New Stand Alone Credit</a></li>
+                                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    @if (showErrorResponse)
+                    {
+                        <div class="card">
+                            <div class="card-title">
+                                <h3>Response Data:</h3>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="void">Void</a></li>
+                                        <li><a class="dropdown-item" href="standalonecredit">New Stand Alone Credit</a></li>
+                                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p>@error</p>
+                            </div>
+                            <div class="card-footer">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="void">Void</a></li>
+                                        <li><a class="dropdown-item" href="standalonecredit">New Stand Alone Credit</a></li>
+                                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@code {
+
+    private string transactionPageTitle = string.Empty;
+
+    private string error = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private FollowOnTransResponse? followOnTransResponse = new FollowOnTransResponse();
+    private NtDecodeInstIdRequest ntDecodeInstIdRequest = new();
+    private RootToken rootToken = new();
+    private CcTransactionTypes currentTransaction;
+
+    private bool showUnifiedCheckout = false;
+    private bool showStandaloneCredit = false;
+    private bool showNewCheckout = false;
+    private bool showResultCard = false;
+    private bool showTokenCard = false;
+    private bool showPaResponse = false;
+    private bool showErrorResponse = false;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+    private List<string> propertyValues = new List<string>();
+
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+        transactionPageTitle = sessionTransJson.CurrentTransactionType.ToString() + ": Follow on Transaction";
+
+        var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+        string jsonString = JsonSerializer.Serialize(sessionTransJson.TransactionJson, options);
+
+        if (jsonString.Contains("not found", StringComparison.OrdinalIgnoreCase)
+        || jsonString.Contains("missing", StringComparison.OrdinalIgnoreCase))
+        {
+            error = "Error: " + jsonString;
+
+            showErrorResponse = true;
+            showUnifiedCheckout = false;
+            showNewCheckout = false;
+            showResultCard = false;
+            showTokenCard = false;
+            showPaResponse = false;
+            showStandaloneCredit = false;
+        }
+        else
+        {
+            if (sessionTransJson is not null && sessionTransJson.CurrentTransactionType == CcTransactionTypes.TOKEN_CREATE)
+            {
+                showTokenCard = true;
+
+                JsonDocument document = JsonDocument.Parse(sessionTransJson!.TransactionJson!.ToString());
+
+                if (document.RootElement.TryGetProperty("customer", out JsonElement customerElement))
+                {
+                    Console.WriteLine("Customer element is present.");
+
+                    JsonNode node = JsonNode.Parse(customerElement.GetRawText())!;
+
+                    Console.WriteLine($"Customer element is parsed:\n {node.ToJsonString()}");
+
+                    string jsonResponseString = node.ToJsonString();
+
+                    RootToken rootToken = JsonSerializer.Deserialize<RootToken>(jsonResponseString)!;
+
+                    //CustomerToken rootToken = JsonSerializer.Deserialize<CustomerToken>(jsonString)!;
+                }
+
+            }
+            else if (sessionTransJson is not null)
+            {
+                showResultCard = true;
+                currentTransaction = (CcTransactionTypes)sessionTransJson.CurrentTransactionType!;
+
+                if (currentTransaction == CcTransactionTypes.UNIFIED_CHECKOUT_PAYMENT)
+                {
+                    showUnifiedCheckout = true;
+                    showNewCheckout = false;
+                    showResultCard = false;
+                    showTokenCard = false;
+                    showPaResponse = false;
+                    showStandaloneCredit = false;
+
+                }
+                else if (currentTransaction == CcTransactionTypes.INVOICE_CREATE)
+                {
+                    showUnifiedCheckout = false;
+                    showNewCheckout = false;
+                    showResultCard = true;
+                    showTokenCard = false;
+                    showPaResponse = false;
+                    showStandaloneCredit = false;
+                }
+                else if (currentTransaction == CcTransactionTypes.PA_SETUP || currentTransaction == CcTransactionTypes.FLEX_PA_SETUP)
+                {
+                    showUnifiedCheckout = false;
+                    showNewCheckout = false;
+                    showResultCard = false;
+                    showTokenCard = false;
+                    showPaResponse = true;
+                    showStandaloneCredit = false;
+                }
+                else if (currentTransaction == CcTransactionTypes.CREDIT)
+                {
+                    showUnifiedCheckout = false;
+                    showNewCheckout = false;
+                    showResultCard = false;
+                    showTokenCard = false;
+                    showPaResponse = false;
+                    showStandaloneCredit = true;
+                }
+                else
+                {
+                    showUnifiedCheckout = false;
+                    showNewCheckout = false;
+                    showResultCard = true;
+                    showTokenCard = false;
+                    showPaResponse = false;
+                    showStandaloneCredit = false;
+                }
+
+                followOnTransResponse = JsonSerializer.Deserialize<FollowOnTransResponse>(sessionTransJson!.TransactionJson!.ToString());
+
+                if (followOnTransResponse is not null && followOnTransResponse.OrderInformation is not null && 
+                    followOnTransResponse.OrderInformation.AmountDetails is not null && followOnTransResponse!.OrderInformation!.AmountDetails!.AuthorizedAmount is not null)
+                {
+                    sessionTransJson.TransactionAmount = followOnTransResponse!.OrderInformation!.AmountDetails!.AuthorizedAmount;
+                }
+
+                propertyValues = PropertiesProcessor.GetProperties(followOnTransResponse!);
+            }
+        }
+
+        base.OnInitialized();
+    }
+
+    private async Task SubmitForFollowOn()
+    {
+        followOnTransResponse = new FollowOnTransResponse();
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+        propertyValues = new();
+
+        // Serialize the object into a string for submission
+
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        string jsonString = JsonSerializer.Serialize(sessionTransJson, options);
+
+        try
+        {
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson.FollowOnTransaction!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionJson != null)
+            {
+                var jsonNode = sessionResponse.TransactionJson;
+
+                followOnTransResponse = JsonSerializer.Deserialize<FollowOnTransResponse>(jsonNode!.ToString()!);
+
+                propertyValues = PropertiesProcessor.GetProperties(followOnTransResponse!);
+
+                showResultCard = true;
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionStatus != null)
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else
+            {
+                error = "Error: " + "No or bad response from server";
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    private async Task SubmitForTokenDecryption()
+    {
+
+        ntDecodeInstIdRequest.InstrumentId = followOnTransResponse!.TokenInformation!.InstrumentIdentifier!.Id;
+        ntDecodeInstIdRequest.PaymentCardId = followOnTransResponse!.PaymentCardId;
+
+        sessionTransJson.FollowOnTransaction = CcTransactionTypes.TOKEN_DECRYPT;
+        currentTransaction = (CcTransactionTypes)sessionTransJson.FollowOnTransaction!;
+
+        try
+        {
+            string response = string.Empty;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            string jsonString = JsonSerializer.Serialize(ntDecodeInstIdRequest, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            string jsonResponse = await CallMinAPIs.SubmitForTokenDecryption(jsonString);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            showResultCard = true;
+
+            var jsonNode = JsonNode.Parse(jsonResponse!);
+
+            followOnTransResponse = JsonSerializer.Deserialize<FollowOnTransResponse>(jsonNode!.ToString()!);
+
+            propertyValues = PropertiesProcessor.GetProperties(followOnTransResponse!);
+
+            showResultCard = true;
+            showTokenCard = false;
+            showNewCheckout = true;
+
+        } 
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+}
+

@@ -1,0 +1,20 @@
+﻿@page "/button-test"
+@rendermode InteractiveServer
+
+<h3>ButtonTester</h3>
+
+<div>
+    <p>Follow on Actions</p>
+    <button class="btn btn-primary" @onclick="ButtonClicked">Click me</button>
+</div>
+
+
+@code {
+
+    private void ButtonClicked()
+    {
+        // Handle button click event here
+        Console.WriteLine("Button clicked!");
+    }
+
+}

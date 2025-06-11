@@ -1,0 +1,164 @@
+﻿@page "/createcustomertoken"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h3>Create Customer Token</h3>
+
+@if(showFieldCard)
+{
+    <FormSection>
+        <EditForm Model="b2CCustomer" OnValidSubmit="SubmitForCustTokenCreate">
+            <div class="col-12">
+                <label for="B2cCustomerId" class="form-label">Customer ID:</label>
+                <InputNumber @bind-Value="b2CCustomer.B2cCustomerId" class="form-control" id="B2cCustomerId" placeholder="Merchant Customer ID"></InputNumber>
+            </div>
+            <div class="col-12">
+                <label for="merchantCustomerId" class="form-label">Merchant Customer ID:</label>
+                <InputText @bind-Value="b2CCustomer.MerchantCustomerID" class="form-control" id="merchantCustomerId" placeholder="Merchant Customer ID"></InputText>
+            </div>
+            <div class="col-12">
+                <label for="email" class="form-label">Order ID:</label>
+                <InputText @bind-Value="b2CCustomer.Email" class="form-control" id="email" placeholder="Email"></InputText>
+            </div>
+
+            <hr class="my-4">
+
+            <button class="w-100 btn btn-primary btn-lg" type="submit">Create Customer Token</button>
+
+        </EditForm>
+    </FormSection>
+}
+
+<br />
+
+@if (showResultCard)
+{
+    <div class="card">
+        <div class="card-title"><h3>Capture Data:</h3></div>
+        <div class="card-body">
+            @if (propertyValues != null && propertyValues.Count > 0)
+            {
+                <ul>
+                    @foreach (var propertyValue in propertyValues)
+                    {
+                        <li>@propertyValue</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>@error</p>
+            }
+        </div>
+        <div class="card-footer">
+            <div class="dropdown">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    Follow on Actions
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="createcustomertoken">Create New Customer Token</a></li>
+                    <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+
+    private B2cCustomer b2CCustomer = new();
+
+    private string error = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private FollowOnTransResponse? followOnTransResponse = new FollowOnTransResponse();
+
+    private bool showFieldCard = true;
+    private bool showResultCard = false;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+    private CcTransactionTypes currentTransaction;
+
+    private List<string> propertyValues = new List<string>();
+    private List<string> TokenTypes = new List<string>();
+
+    private JsonNode? _transactionJson = null;
+
+    protected override void OnInitialized()
+    {
+
+        Guid? merchantCustomerId = new Guid();
+
+        merchantCustomerId = Guid.NewGuid();
+
+        b2CCustomer.MerchantCustomerID = merchantCustomerId.ToString();
+
+        base.OnInitialized();
+    }
+
+
+    private async Task SubmitForCustTokenCreate()
+    {
+        try
+        {
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.CUST_ID_CREATE;
+            sessionTransJson.FollowOnTransaction = CcTransactionTypes.CUST_ID_CREATE;
+            currentTransaction = CcTransactionTypes.CUST_ID_CREATE;
+
+            TokenTypes.Add("customer");
+            b2CCustomer.ActionTokenTypes = TokenTypes.ToArray();
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(b2CCustomer, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson.FollowOnTransaction);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && sessionResponse.TransactionStatus.Contains("error"))
+            {
+                showFieldCard = false;
+                showResultCard = true;
+                error = "Error: " + sessionResponse.TransactionStatus;
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.TransactionJson;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/processfollowon");
+            }
+            else
+            {
+                showFieldCard = false;
+                showResultCard = true;
+                error = "Error: No response from server";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            showFieldCard = false;
+            showResultCard = true;
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+}

@@ -1,0 +1,174 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/transtokenretrieve"
+
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>Transaction Token Retrieval</h1>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mb-2">
+            <div class="card">
+                <div class="card-body">
+                    <div class="card-title"><h3>Response Data:</h3>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (error is not null)
+                        {
+                            <label>There was an error in processing:</label>
+                            <span>@error</span>
+                        }
+                        else 
+                        {
+                            <ul>
+                                @foreach (var propertyValue in propertyValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Follow on Actions
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                            <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@code {
+
+    private string transactionPageTitle = "Token Transaction Retrieval";
+
+    private string? error = null;
+    string transientCtxToken = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson? sessionTransJson = new SessionTransJson();
+    private FollowOnTransResponse? followOnTransResponse = new FollowOnTransResponse();
+
+    private CcTransactionTypes currentTransaction;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+    string transientTokenResponse = string.Empty;
+
+    private List<string> propertyValues = new List<string>();
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        sessionTransJson = _sessionTransactions.Transactions.FirstOrDefault()!;
+
+        string placeHolder = "Token Transaction Retrieval";
+
+        propertyValues.Add(placeHolder);
+
+        base.OnInitialized();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (sessionTransJson is not null && sessionTransJson.TransientToken is not null)
+        {
+            await SubmitTokenRetrieve();
+        }
+        else
+        {
+            error = "Input JSON or Transient Token are NULL";    
+        }
+    }
+
+    private async Task SubmitTokenRetrieve()
+    {
+        try
+        {
+            Guid guid = Guid.NewGuid();
+
+            CtxPaymentDto ctxPaymentDto = new();
+
+            ctxPaymentDto.TransactionType = CcTransactionTypes.TRANS_TOKEN_INFORMATION;
+            ctxPaymentDto.TokenInformation!.TransientTokenJwt = sessionTransJson!.TransientToken;
+            ctxPaymentDto.ClientReferenceInformation!.Code = guid.ToString();
+
+            currentTransaction = CcTransactionTypes.TRANS_TOKEN_INFORMATION;
+
+            propertyValues = new();
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(ctxPaymentDto, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, currentTransaction!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null)
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.DeleteAll();
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.TransactionJson.ToString().Contains("error", StringComparison.OrdinalIgnoreCase))
+            {
+                error = "Error: " + sessionResponse.TransactionJson.ToString();
+                sessionResponse.error = error;
+                sessionTransactions.DeleteAll();
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                var jsonNode = sessionResponse.TransactionJson;
+
+                if (jsonNode is not null)
+                {
+                    transientTokenResponse = jsonNode.ToString();
+
+                    Console.WriteLine($"Transient Token Response: {jsonNode.ToString()}");
+
+                    followOnTransResponse = JsonSerializer.Deserialize<FollowOnTransResponse>(transientTokenResponse!);
+
+                    propertyValues = PropertiesProcessor.GetProperties(followOnTransResponse!);
+                    sessionTransactions.AddTrans(sessionResponse);
+                }
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+        }
+    }
+}
+

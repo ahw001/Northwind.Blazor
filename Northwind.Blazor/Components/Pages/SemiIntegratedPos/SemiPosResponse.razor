@@ -1,0 +1,323 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/semiintposresponse"
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>@transactionPageTitle</h1>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mb-2">
+            @if (showCloudPosSale)
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <div class="card">
+                            <div class="card-title">
+                                <h3>Response Data:</h3>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="cloudposbearer">Process New Cloud POS Sale</a></li>
+                                        <li><a class="dropdown-item" href="cloudposlinkedreturn">Process Cloud POS Linked Return</a></li>
+                                        <li><a class="dropdown-item" href="cloudpostokenreturn">Process Cloud POS Token Return</a></li>
+                                        <li><a class="dropdown-item" href="cloudposstatuscheck">Process Cloud POS Status Check</a></li>
+                                        <li><a class="dropdown-item" href="cloudposcancel">Cancel Cloud POS Transaction</a></li>
+                                        @if (showCaptureOption)
+                                        {
+                                            <li><a class="dropdown-item" href="cloudposcapture">Capture Cloud POS Pre-Auth Transaction</a></li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (propertyValues != null && propertyValues.Count > 0)
+                                {
+                                    <ul>
+                                        @foreach (var propertyValue in propertyValues)
+                                        {
+                                            <li>@propertyValue</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>@error</p>
+                                }
+                            </div>
+                            <div class="card-footer">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="cloudposbearer">Process New Cloud POS Sale</a></li>
+                                        <li><a class="dropdown-item" href="cloudposlinkedreturn">Process Cloud POS Linked Return</a></li>
+                                        <li><a class="dropdown-item" href="cloudpostokenreturn">Process Cloud POS Token Return</a></li>
+                                        <li><a class="dropdown-item" href="cloudposstatuscheck">Process Cloud Status Check</a></li>
+                                        <li><a class="dropdown-item" href="cloudposcancel">Cancel Cloud POS Transaction</a></li>
+                                        @if (showCaptureOption)
+                                        {
+                                            <li><a class="dropdown-item" href="cloudposcapture">Capture Cloud POS Pre-Auth Transaction</a></li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            @if (showCloudPosReturn)
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <div class="card">
+                            <div class="card-title">
+                                <h3>Response Data:</h3>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="cloudposbearer">Process New Cloud POS Sale</a></li>
+                                        <li><a class="dropdown-item" href="cloudposstatuscheck">Process Cloud POS Status Check</a></li>
+                                        <li><a class="dropdown-item" href="cloudposcancel">Cancel Cloud POS Transaction</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (propertyValues != null && propertyValues.Count > 0)
+                                {
+                                    <ul>
+                                        @foreach (var propertyValue in propertyValues)
+                                        {
+                                            <li>@propertyValue</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>@error</p>
+                                }
+                            </div>
+                            <div class="card-footer">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="cloudposbearer">Process New Cloud POS Sale</a></li>
+                                        <li><a class="dropdown-item" href="cloudposstatuscheck">Process Cloud Status Check</a></li>
+                                        <li><a class="dropdown-item" href="cloudposcancel">Cancel Cloud POS Transaction</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            @if (showCloudPosStatusCheck)
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <div class="card">
+                            <div class="card-title">
+                                <h3>Response Data:</h3>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="cloudposbearer">Process New Cloud POS Sale</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (propertyValues != null && propertyValues.Count > 0)
+                                {
+                                    <ul>
+                                        @foreach (var propertyValue in propertyValues)
+                                        {
+                                            <li>@propertyValue</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>@error</p>
+                                }
+                            </div>
+                            <div class="card-footer">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="cloudposbearer">Process New Cloud POS Sale</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            @if (showCloudPosTokenReturn)
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <div class="card">
+                            <div class="card-title">
+                                <h3>Response Data:</h3>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="cloudposbearer">Process New Cloud POS Sale</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (propertyValues != null && propertyValues.Count > 0)
+                                {
+                                    <ul>
+                                        @foreach (var propertyValue in propertyValues)
+                                        {
+                                            <li>@propertyValue</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>@error</p>
+                                }
+                            </div>
+                            <div class="card-footer">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="cloudposbearer">Process New Cloud POS Sale</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+
+@code {
+
+    private string transactionPageTitle = string.Empty;
+
+    private string error = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private CloudPaymentResponseJson? cloudPaymentResponseJson = new CloudPaymentResponseJson();
+
+    private bool showCloudPosSale = false;
+    private bool showCloudPosReturn = true;
+    private bool showCloudPosStatusCheck = false;
+    private bool showCloudPosStandAloneReturn = false;
+    private bool showCloudPosTokenReturn = false;
+    private bool showCaptureOption = false;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+    private List<string> propertyValues = new List<string>();
+
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            _sessionTransactions = sessionTransactions;
+
+            sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+            transactionPageTitle = sessionTransJson.CurrentTransactionType.ToString() + ": Follow on Transaction";
+
+
+            if (sessionTransJson.CurrentTransactionType == CcTransactionTypes.CLOUD_POS_BEARER_RETURN)
+            {
+                showCloudPosSale = false;
+                showCloudPosReturn = true;
+                showCloudPosStatusCheck = false;
+                showCloudPosStandAloneReturn = false;
+                showCloudPosTokenReturn = false;
+            }
+            else if (sessionTransJson.CurrentTransactionType == CcTransactionTypes.CLOUD_POS_BEARER_STATUS_CHECK)
+            {
+                showCloudPosSale = false;
+                showCloudPosReturn = false;
+                showCloudPosStatusCheck = true;
+                showCloudPosStandAloneReturn = false;
+                showCloudPosTokenReturn = false;
+            }
+            else if (sessionTransJson.CurrentTransactionType == CcTransactionTypes.CLOUD_POS_BEARER_SALE)
+            {
+                showCloudPosSale = true;
+                showCloudPosReturn = false;
+                showCloudPosStatusCheck = false;
+                showCloudPosStandAloneReturn = true;
+                showCloudPosTokenReturn = false;
+            }
+            else if (sessionTransJson.CurrentTransactionType == CcTransactionTypes.CLOUD_POS_TOKEN_RETURN)
+            {
+                showCloudPosSale = false;
+                showCloudPosReturn = false;
+                showCloudPosStatusCheck = false;
+                showCloudPosStandAloneReturn = false;
+                showCloudPosTokenReturn = true;
+            }
+            else
+            {
+                error = "No data found.";
+            }
+
+
+            cloudPaymentResponseJson = JsonSerializer.Deserialize<CloudPaymentResponseJson>(sessionTransJson!.TransactionJson!.ToString()!);
+
+            if (cloudPaymentResponseJson!.TransactionDetails!.Captured.HasValue &&
+                !cloudPaymentResponseJson.TransactionDetails.Captured.Value)
+            {
+                showCaptureOption = true;
+            }
+
+            if (cloudPaymentResponseJson is not null)
+            {
+                propertyValues = PropertiesProcessor.GetProperties(cloudPaymentResponseJson!);
+            }
+            else
+            {
+                error = "No data found.";    
+            }
+            
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+
+        base.OnInitialized();
+    }
+
+}
+
+

@@ -1,0 +1,81 @@
+﻿@page "/dropdown-button"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IJSRuntime JSRuntime
+
+<script src="Components/Pages/PageUtils/DropDownButton.razor.js"></script>
+
+<div class="dropdown">
+    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        DropDown Method Test
+    </button>
+    <ul class="dropdown-menu">
+        <li onclick="callDropDownNetMethod(1)">Method1</li>
+        <li @onclick="() => Method2()">Method2</li>
+        <li @onclick="() => Method3()">Method3</li>
+    </ul>
+</div>
+
+<br />
+<br />
+
+<button class="btn btn-secondary" onclick="callDropDownNetMethod()">Call .NET Method from JavaScript</button>
+
+
+@if (showDropDown)
+{
+    <div class="dropdown">
+        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            DropDown Method Test
+        </button>
+        <ul class="dropdown-menu">
+            <li class="dropdown-item" onclick="callCustDropDownNetMethod(1)">Method1</li>
+            <li class="dropdown-item" onclick="callCustDropDownNetMethod(2)">Method2</li>
+            <li class="dropdown-item" onclick="callCustDropDownNetMethod(3)">Method3</li>
+        </ul>
+    </div>
+}
+
+
+@code {
+
+    private bool showDropDown = false;
+
+    private void Method1()
+    {
+        Console.WriteLine("Executing Method1");
+        // Add your Method1 logic here
+    }
+
+    private void Method2()
+    {
+        Console.WriteLine("Executing Method2");
+        // Add your Method2 logic here
+    }
+
+    private void Method3()
+    {
+        Console.WriteLine("Executing Method3");
+        // Add your Method3 logic here
+    }
+
+    [JSInvokable]
+    public static Task DropDownMethod(int itemChosen)
+    {
+        Console.WriteLine($"InteriorMethod method invoked. Item Chosen: {itemChosen.ToString()}");
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public static Task NextAction(int itemChosen)
+    {
+
+        Console.WriteLine($"InteriorMethod method invoked. Item Chosen: {itemChosen.ToString()}");
+        if (itemChosen == 1)
+        {
+            Console.WriteLine("Executing Method1: " + itemChosen.ToString());
+        }
+        return Task.CompletedTask;
+    }
+
+}

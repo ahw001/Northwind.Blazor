@@ -1,0 +1,142 @@
+﻿@page "/flexcheckoutbasic"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h3>Flex Checkout</h3>
+
+<div class="container">
+    <main>
+
+        @if (Show)
+        {
+            <textarea style="width: 600px; height: 600px; resize: both;" id="ctxSetupInfo" name="ctxSetupInfo" rows="1" cols="1">
+                -- RequestURL --
+                URL : https://apitest.cybersource.com/microform/v2/sessions
+                Method : POST
+                 -- Request Payload --
+                {
+                  "targetOrigins": [
+                    "https://localhost:7133"
+                  ],
+                  "clientVersion": "v2",
+                  "allowedCardNetworks": [
+                    "VISA",
+                    "MASTERCARD",
+                    "AMEX",
+                    "JCB",
+                    "DISCOVER",
+                    "DINERSCLUB"
+                  ]
+                }
+
+                 -- HTTP Headers --
+                v-c-merchant-id : ahwtmsmax001
+                Date : Tue, 01 Oct 2024 23:22:05 GMT
+                Host : apitest.cybersource.com
+                Digest : SHA-256=5AN95l97vCP5yMEKFvwXuLQZHCn70scg6LUycugM3fo=
+                Signature : keyid="029a8321-3d24-4492-9474-ae97e496e5b1", algorithm="HmacSHA256", headers="host date request-target digest v-c-merchant-id", signature="gWZDYIKbQqiee3knIIejQ2qExH1MtQUXcRlyh1HJs7A="
+            </textarea>
+
+            <hr class="my-4">
+
+            <button class="btn btn-primary" type="button" @onclick="Submit">
+                SUBMIT FOR CONTEXT CREATE
+            </button>
+
+        }
+
+    </main>
+</div>
+
+<div>
+    <footer class="my-5 pt-5 text-body-secondary text-center text-small">
+        <p class="mb-1">&copy; 2017–2024 Company Name</p>
+        <ul class="list-inline">
+            <li class="list-inline-item"><a href="#">Privacy</a></li>
+            <li class="list-inline-item"><a href="#">Terms</a></li>
+            <li class="list-inline-item"><a href="#">Support</a></li>
+        </ul>
+    </footer>
+</div>
+
+@code {
+
+    public bool Show { get; set; } = true;
+
+    private string? error;
+
+    private DBSampleCustomerDatum? customer = new();
+    private B2cCustomer b2CCustomer = new();
+
+    private ICustomersScoped _customersScoped = new CustomersScoped();
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new();
+
+    private JsonNode? _transactionJson = null;
+
+
+    protected override void OnInitialized()
+    {
+        sessionTransactions.DeleteAll();
+    }
+
+    private async Task Submit()
+    {
+
+        try
+        {
+            b2CCustomer = new();
+            b2CCustomer.TotalAmount = 100.00m;
+
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.FLEX_CHECKOUT;
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.FLEX_CHECKOUT;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(b2CCustomer, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && sessionResponse.TransactionStatus.Contains("error"))
+            {
+                error = "Error: " + sessionResponse.TransactionJson;
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.TransactionJson;
+                sessionResponse.Customer = b2CCustomer;
+
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/flexprocessor");
+            }
+            else
+            {
+                error = "Error: No response from server";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,133 @@
+﻿@page "/refundform"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>@transactionPageTitle</h1>
+<FormSection>
+    <EditForm Model="refund" OnValidSubmit="SubmitForRefund">
+        <div class="col-12">
+            <label for="requestId" class="form-label">Request ID:</label>
+            <InputText @bind-Value="refund.RequestId" class="form-control" id="requestId" placeholder="Request ID"></InputText>
+        </div>
+        <div class="col-12">
+            <label for="orderId" class="form-label">Order ID:</label>
+            <InputText @bind-Value="refund.OrderId" class="form-control" id="orderId" placeholder="Order ID"></InputText>
+        </div>
+
+        <hr class="my-4">
+
+        <div class="form-check border">
+            <InputCheckbox @bind-Value="refund.Sale" class="form-check-input" id="sale"></InputCheckbox>
+            <label class="form-check-label" for="sale">Original Transaction Sale</label>
+        </div>
+        <div class="form-check border">
+            <InputCheckbox @bind-Value="refund.Capture" class="form-check-input" id="refund" />
+            <label class="form-check-label" for="save-info">Original Transaction Capture</label>
+        </div>
+
+        <hr class="my-4">
+
+        <button class="w-100 btn btn-primary btn-lg" type="submit">Process Transaction</button>
+
+
+    </EditForm>
+</FormSection>
+
+
+
+@code {
+
+    private RefundTransaction refund = new();
+
+    private string transactionPageTitle = "Refund with Reference Processing";
+
+    private string error = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private FollowOnTransResponse? followOnTransResponse = new FollowOnTransResponse();
+
+    private bool showResultCard = false;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+    private CcTransactionTypes currentTransaction;
+
+    private List<string> propertyValues = new List<string>();
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+    }
+
+    private async Task SubmitForRefund()
+    {
+        try 
+        {
+            sessionTransJson.TransactionOrderId = refund.OrderId;
+            sessionTransJson.TransactionId = refund.RequestId;
+            sessionTransJson.OriginalTransactionId = refund.RequestId;
+
+
+            if (refund.Capture)
+            {
+                sessionTransJson.OriginalTransactionType = CcTransactionTypes.CAPTURE;
+                sessionTransJson.FollowOnTransaction = CcTransactionTypes.REFUND_CAPTURE;
+                currentTransaction = CcTransactionTypes.REFUND_CAPTURE;
+            }
+
+            if (refund.Sale)
+            {
+                sessionTransJson.OriginalTransactionType = CcTransactionTypes.SALE;
+                sessionTransJson.FollowOnTransaction = CcTransactionTypes.REFUND_SALE;
+                currentTransaction = CcTransactionTypes.REFUND_SALE;
+            }
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(sessionTransJson, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson!.FollowOnTransaction!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                var jsonNode = sessionResponse.TransactionJson;
+
+                followOnTransResponse = JsonSerializer.Deserialize<FollowOnTransResponse>(jsonNode!.ToString()!);
+
+                propertyValues = PropertiesProcessor.GetProperties(followOnTransResponse!);
+
+                showResultCard = true;
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionStatus != null)
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+            }
+            else
+            {
+                error = "Error: " + "No or bad response from server";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+        }
+    }
+}
+

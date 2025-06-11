@@ -1,0 +1,210 @@
+﻿@page "/semiintpostokenreturn"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h3>Cloud POS Stand Alone Return</h3>
+
+<div class="container">
+    <main>
+
+        @if (Show)
+        {
+            <div class="col-md-7 col-lg-8">
+                <FormSection Title="Billing Details" HelpText="">
+                    <EditForm Model="b2CCustomer" OnValidSubmit="Submit">
+                        <div class="d-flex">
+                            <div class="col-md-6 me-2">
+                                <label for="inst-id" class="form-label">Instrument Identifier</label>
+                                <InputText @bind-Value="b2CCustomer!.InstrumentIdentifier" class="form-control" id="inst-id" placeholder="" />
+                                <ValidationMessage For="() => b2CCustomer.InstrumentIdentifier" />
+                            </div>
+                            <div class="col-md-6 me-2">
+                                <label for="return-amount" class="form-label">Return Amount</label>
+                                <InputNumber @bind-Value="b2CCustomer!.TotalAmount" class="form-control" id="return-amount" placeholder="" />
+                                <ValidationMessage For="() => b2CCustomer.TotalAmount" />
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <button class="w-100 btn btn-primary btn-lg" type="submit">Submit</button>
+
+                        <hr class="my-4">
+
+                    </EditForm>
+                </FormSection>
+            </div>
+        }
+
+        @if (error is not null)
+        {
+            <div class="row p-5">
+                <stong class="alert-danger">@error</stong>
+            </div>
+            <br />
+            <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasExample" aria-controls="offcanvasExample">
+                Show Error Details
+            </button>
+            <br />
+            <ErorrDetails TransactionJson="_transactionJson"></ErorrDetails>
+        }
+    </main>
+</div>
+
+<div>
+    <footer class="my-5 pt-5 text-body-secondary text-center text-small">
+        <p class="mb-1">&copy; 2017–2024 Company Name</p>
+        <ul class="list-inline">
+            <li class="list-inline-item"><a href="#">Privacy</a></li>
+            <li class="list-inline-item"><a href="#">Terms</a></li>
+            <li class="list-inline-item"><a href="#">Support</a></li>
+        </ul>
+    </footer>
+</div>
+
+@code {
+
+
+    public bool Show { get; set; } = true;
+
+    private string? error;
+
+    private B2cCustomer b2CCustomer = new();
+    private BearerTokenDto bearerTokenDto = new BearerTokenDto();
+    private CcTransactionTypes currentTransaction;
+    private CloudPaymentResponseJson cloudPaymentResponseJson = new();
+
+    private ICustomersScoped _customersScoped = new CustomersScoped();
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new();
+
+    private JsonNode? _transactionJson = null;
+
+    [Parameter, EditorRequired] public EventCallback<JsonNode> OnSelected { get; set; }
+
+    protected override void OnInitialized()
+    {
+        b2CCustomer = new();
+
+        try
+        {
+            if (sessionTransactions is not null && sessionTransactions.Transactions is not null)
+            {
+                _sessionTransactions = sessionTransactions;
+
+                sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+                if (sessionTransJson.CloudPaymentResponseJson is not null && sessionTransJson.Customer is not null)
+                {
+                    cloudPaymentResponseJson = sessionTransJson.CloudPaymentResponseJson!;
+                    b2CCustomer = sessionTransJson.Customer!;
+                    b2CCustomer.InstrumentIdentifier = cloudPaymentResponseJson!.AdditionalInformation!.InstrumentId;
+
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private async Task Submit()
+    {
+        try
+        {
+            // Serialize the empty object into a string for submission to create the bearer token
+
+            string emptyJson = "{}";
+
+            currentTransaction = CcTransactionTypes.CLOUD_POS_BEARER_CREATE;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string bearerToken = JsonSerializer.Serialize(emptyJson, options);
+
+            // POST FOR CLOUD POS BEARER CREATE TRANSACTION *******
+
+            SessionTransJson sessionBearerResponse = await CallMinAPIs.SubmitForFollowOn(bearerToken, _sessionTransactions, currentTransaction);
+
+            // POST FOR CLOUD POS BEARER CREATE TRANSACTION *******
+
+            if (sessionBearerResponse != null && sessionBearerResponse.TransactionStatus != null && sessionBearerResponse.TransactionStatus.Contains("error"))
+            {
+                error = "Error: " + sessionBearerResponse.TransactionJson;
+                sessionBearerResponse!.error = error;
+                sessionTransactions.AddTrans(sessionBearerResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionBearerResponse != null && sessionBearerResponse.TransactionJson != null && sessionBearerResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                bearerTokenDto = JsonSerializer.Deserialize<BearerTokenDto>(sessionBearerResponse.TransactionJson)!;
+                bearerToken = bearerTokenDto.BearerToken!;
+            }
+            else
+            {
+                error = "Error: No response from server";
+                StateHasChanged();
+            }
+
+            b2CCustomer.CloudPosType = "TokenRefundRequest";
+            b2CCustomer.BearerToken = bearerTokenDto.BearerToken;
+
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.CLOUD_POS_TOKEN_RETURN;
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.CLOUD_POS_TOKEN_RETURN;
+
+            // Serialize the object into a string for submission
+
+            string jsonString = JsonSerializer.Serialize(b2CCustomer, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, _sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && sessionResponse.TransactionStatus.Contains("error"))
+            {
+                error = "Error: " + sessionResponse.TransactionJson;
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.error != null && sessionResponse.error.ToString().Contains("error"))
+            {
+                error = "Error: " + sessionResponse.error;
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.TransactionJson;
+                sessionResponse.Customer = b2CCustomer;
+
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/cloudposresponse");
+            }
+            else
+            {
+                error = "Error: No response from server";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,167 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/checkout"
+
+@inject NavigationManager Navigation
+
+@inject ICartService cartService
+@inject ISessionTransactions sessionTransactions
+@inject ICustomersScoped customersScoped
+
+<title>Checkout</title>
+
+<div class="py-1 text-center">
+    <h2>Checkout</h2>
+</div>
+
+<hr class="my-4">
+
+<div>
+    <div class="row g-5">
+        @if (Show)
+        {
+            <CustomerComponent ButtonText="Checkout" FormElements="HomeFormElements" FormCustomer="b2CCustomer" ValidSubmit="Submit"></CustomerComponent>
+        }
+
+        <FormSection>
+            @if (error is not null)
+            {
+                <div class="col-6">
+                    <strong class="alert-danger">@error</strong>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Follow on Actions
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                    </ul>
+                </div>
+            }
+        </FormSection>
+    </div>
+
+    <footer class="my-5 pt-5 text-body-secondary text-center text-small">
+        <p class="mb-1">&copy; 2017–2024 Company Name</p>
+        <ul class="list-inline">
+            <li class="list-inline-item"><a href="#">Privacy</a></li>
+            <li class="list-inline-item"><a href="#">Terms</a></li>
+            <li class="list-inline-item"><a href="#">Support</a></li>
+        </ul>
+    </footer>
+</div>
+
+@code {
+    private bool Show = true;
+    private bool containsError = false;
+
+    List<string> HomeFormElements = new List<string> { "ShowMainForm", "ShowBilling", "ShowAccountDetails", "ShowDefaults", "ShowAuthCapture", "ShowCart" };
+
+    private string? error;
+
+    private List<string> TokenTypes = new();
+
+    private B2cCustomer b2CCustomer = new();
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+
+    private SessionTransJson sessionTransJson = new();
+
+    private JsonNode? _transactionJson = null;
+
+    private static List<BasicErrorInfo> basicErrorInfos = new List<BasicErrorInfo>();
+
+    protected override void OnInitialized()
+    {
+        cartService.DeleteAll();
+
+        base.OnInitialized();
+    }
+
+    private async Task Submit(B2cCustomer submittedCustomer)
+    {
+        try
+        {
+            if (submittedCustomer.MarkedForCapture)
+            {
+                sessionTransJson.OriginalTransactionType = CcTransactionTypes.SALE;
+                sessionTransJson.CurrentTransactionType = CcTransactionTypes.SALE;
+            }
+            else
+            { 
+                sessionTransJson.OriginalTransactionType = CcTransactionTypes.AUTH;
+                sessionTransJson.CurrentTransactionType = CcTransactionTypes.AUTH;
+            }
+
+
+            if (submittedCustomer.ActionTokenTypes is null)
+            {
+                submittedCustomer.ActionTokenTypes = new string[] { "paymentInstrument" };
+            }
+
+            if (submittedCustomer.TotalAmount == 0.00m && submittedCustomer is not null && submittedCustomer.Cart is not null)
+            {
+                foreach (var item in submittedCustomer.Cart)
+                {
+                    submittedCustomer.TotalAmount += item.UnitPrice;
+                }
+            }
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(submittedCustomer, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+            var jsonNode = sessionResponse.TransactionJson;
+
+            string[] errorKeywords = ["INVALID", "ERROR", "FAILED", "DECLINED", "invalid", "error", "failed", "declined"];
+
+
+            if (sessionResponse is null)
+            {
+                StateHasChanged(); // optional
+                error = "Session Response is null";
+                sessionResponse = new SessionTransJson();
+                sessionResponse.JsonTransactionStateValues = TransactionStateValues.Error;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+
+            if (sessionResponse is not null && sessionResponse.TransactionJson is not null)
+            {
+                basicErrorInfos = JsonErrorExtractor.ExtractErrorObjects(sessionResponse.TransactionJson.ToString());
+
+                containsError = basicErrorInfos.Any(e =>
+                    !string.IsNullOrWhiteSpace(e.Status) &&
+                    errorKeywords.Any(keyword =>
+                        e.Status.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (sessionResponse != null && containsError)
+            {
+                StateHasChanged(); // optional
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else
+            {
+                sessionTransactions.AddTrans(sessionResponse!);
+                Navigation.NavigateTo("/processauth");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+}

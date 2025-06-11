@@ -1,0 +1,495 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/processfollowontoken"
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>Token Create Responses</h1>
+
+<div class="container">
+    <div class="row row-cols-1 row-cols-md-2 gy-4">
+        @if (showAuthTokenCreate)
+        {
+            <div class="col-sm-6 mb-3 mb-sm-0">
+                <div class="card">
+                    <div class="card-title">
+                        <h3>Response Data for Authorized Token Create:</h3>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    <div class="card-body">
+                        @if (authTokenValues != null && authTokenValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in authTokenValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                    <div class="card-footer">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (showTokenDecryption)
+        {
+            <div class="col-sm-6 mb-3 mb-sm-0">
+                <div class="card">
+                    <div class="card-title"><h3>Response Data for Customer Token:</h3></div>
+                    <div class="card-body">
+                        @if (instIdValues != null && instIdValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in instIdValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                    <div class="card-footer">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (showCustomerResultCard)
+        {
+            <div class="col-sm-6 mb-3 mb-sm-0">
+                <div class="card">
+                    <div class="card-title"><h3>Response Data for Customer Token:</h3></div>
+                    <div class="card-body">
+                        @if (customerValues != null && customerValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in customerValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                    <div class="card-footer">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                 </div>
+            </div>
+        }
+        @if (showInstrumentResultCard)
+        { 
+            <div class="col-sm-6 mb-3 mb-sm-0">
+                <div class="card">
+                    <div class="card-title"><h3>Response Data for Instrument ID Token:</h3></div>
+                    <div class="card-body">
+                        @if (instrumentValues != null && instrumentValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in instrumentValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                    <div class="card-footer">
+                            <div class="col p-3">
+                                <button class="btn btn-primary" type="button" @onclick="SubmitForTokenDecryption">
+                                    SUBMIT FOR NETWORK TOKEN
+                                </button>
+                            </div>
+                            <div class="col p-3">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Follow on Actions
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="tokencreate">Decrypt Token</a></li>
+                                        <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                    </ul>
+                            </div>
+                        
+                    </div>
+                </div>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="row row-cols-1 row-cols-md-2 gy-4">
+        @if (showShippingResultCard)
+        { 
+            <div class="col-sm-6">
+                <div class="card">
+                    <div class="card-title"><h3>Response Data for Shipping Token:</h3></div>
+                    <div class="card-body">
+                        @if (shippingValues != null && shippingValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in shippingValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                        
+                    </div>
+                    <div class="card-footer">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (showPaymentResultCard) 
+        {
+            <div class="col-sm-6 mb-3">
+                <div class="card">
+                    <div class="card-title"><h3>Response Data for Payment Token:</h3></div>
+                    <div class="card-body">
+                        @if (paymentValues != null && paymentValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in paymentValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                    <div class="card-footer">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+
+    private string transactionPageTitle = string.Empty;
+
+
+    private string error = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private NtDecodeInstIdRequest ntDecodeInstIdRequest = new();
+    private RootToken rootToken = new();
+
+    private bool showCustomerResultCard = false;
+    private bool showShippingResultCard = false;
+    private bool showInstrumentResultCard = false;
+    private bool showPaymentResultCard = false;
+    private bool showTokenDecryption = false;
+    private bool showAuthTokenCreate = false;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+    string currentTransactionType = string.Empty;
+
+    private List<string> propertyValues = new List<string>();
+    private List<string> customerValues = new List<string>();
+    private List<string> shippingValues = new List<string>();
+    private List<string> instrumentValues = new List<string>();
+    private List<string> paymentValues = new List<string>();
+    private List<string> instIdValues = new List<string>();
+    private List<string> authTokenValues = new List<string>();
+
+    private AuthTransResponse? authTransResponse = new();
+    private JsonNode? transJsonNode;
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+        transactionPageTitle = sessionTransJson.CurrentTransactionType.ToString() + ": Follow on Token Processing";
+
+        if (sessionTransJson is not null && sessionTransJson.CurrentTransactionType == CcTransactionTypes.TOKEN_CREATE)
+        {
+            JsonDocument document = JsonDocument.Parse(sessionTransJson!.TransactionJson!.ToString());
+
+            if (document.RootElement.TryGetProperty("status", out JsonElement statusElement))
+            {
+                statusNode = statusElement.GetString()!;
+                if (statusNode == "AUTHORIZED")
+                {
+                    Console.WriteLine("Status is AUTHORIZED");
+
+                    transJsonNode = sessionTransJson.TransactionJson;
+
+                    if (transJsonNode is not null)
+                    {
+                        authTransResponse = JsonSerializer.Deserialize<AuthTransResponse>(transJsonNode.ToString());
+
+                        if (authTransResponse is not null)
+                        {
+                            authTokenValues = new List<string>(PropertiesProcessor.GetProperties(authTransResponse));
+                        }
+                    }
+
+                    showAuthTokenCreate = true;
+                    showCustomerResultCard = false;
+                    showInstrumentResultCard = false;
+                    showPaymentResultCard = false;
+                    showShippingResultCard = false;
+                    showTokenDecryption = false;
+                }
+            }
+
+            if (document.RootElement.TryGetProperty("customer", out JsonElement customerElement))
+            {
+                currentTransactionType = "CUSTOMER";
+
+                Console.WriteLine("Customer element is present.");
+
+                JsonNode node = JsonNode.Parse(customerElement.GetRawText())!;
+
+                Console.WriteLine($"Customer element is parsed:\n {node.ToJsonString()}");
+
+                string jsonString = node.ToJsonString();
+
+                RootToken customerRootToken = JsonSerializer.Deserialize<RootToken>(jsonString)!;
+
+                customerValues = new List<string>(PropertiesProcessor.GetProperties(customerRootToken!));
+
+                showCustomerResultCard = true;
+            }
+
+            if (document.RootElement.TryGetProperty("shippingAddress", out JsonElement shippingElement))
+            {
+                currentTransactionType = "SHIPPING INST";
+
+                Console.WriteLine("Shipping Address element is present.");
+
+                JsonNode node = JsonNode.Parse(shippingElement.GetRawText())!;
+
+                Console.WriteLine($"Shipping Address element is parsed:\n {node.ToJsonString()}");
+
+                string jsonString = node.ToJsonString();
+
+                RootToken shippingRootToken = JsonSerializer.Deserialize<RootToken>(jsonString)!;
+
+                shippingValues = new List<string>(PropertiesProcessor.GetProperties(shippingRootToken!));
+
+                showShippingResultCard = true;
+            }
+
+            if (document.RootElement.TryGetProperty("instrumentIdentifier", out JsonElement instrumentElement))
+            {
+                currentTransactionType = "INSTRUMENT INST";
+
+                Console.WriteLine("Instrument element is present.");
+
+                JsonNode node = JsonNode.Parse(instrumentElement.GetRawText())!;
+
+                Console.WriteLine($"Instrument element is parsed:\n {node.ToJsonString()}");
+
+                string jsonString = node.ToJsonString();
+
+                RootToken instIdRootToken = JsonSerializer.Deserialize<RootToken>(jsonString)!;
+
+                instrumentValues = new List<string>(PropertiesProcessor.GetProperties(instIdRootToken!));
+
+                showInstrumentResultCard = true;
+            }
+
+            if (document.RootElement.TryGetProperty("paymentInstrument", out JsonElement paymentElement))
+            {
+                currentTransactionType = "PAYMENT INST";
+
+                Console.WriteLine("Payment Card element is present.");
+
+                JsonNode node = JsonNode.Parse(paymentElement.GetRawText())!;
+
+                Console.WriteLine($"Payment Card element is parsed:\n {node.ToJsonString()}");
+
+                string jsonString = node.ToJsonString();
+
+                if (jsonString is not null)
+                {
+                    RootToken paymentRootToken = JsonSerializer.Deserialize<RootToken>(jsonString)!;
+                    
+                    paymentValues = new List<string>(PropertiesProcessor.GetProperties(paymentRootToken!));
+
+                    showPaymentResultCard = true;
+                }
+                else
+                {
+                    error = "Error: Payment Instrument is null.";
+                    
+                }
+            }
+        }
+        else if (sessionTransJson is not null)
+        {
+            Console.WriteLine("SessionTransJson is not null");
+
+            if (sessionTransJson.CurrentTransactionType == CcTransactionTypes.TOKEN_DECRYPT)
+            {
+                showAuthTokenCreate = false;
+                showCustomerResultCard = false;
+                showInstrumentResultCard = false;
+                showPaymentResultCard = false;
+                showShippingResultCard = false;
+                showTokenDecryption = true;
+            }
+        }
+
+        base.OnInitialized();
+    }
+
+    private async Task SubmitForTokenDecryption()
+    {
+        try
+        {
+            showCustomerResultCard = false;
+            showInstrumentResultCard = false;
+            showPaymentResultCard = false;
+            showShippingResultCard = false;
+            showTokenDecryption = true;
+
+            string response = string.Empty;
+
+            JsonDocument docForInstId = JsonDocument.Parse(sessionTransJson!.TransactionJson!.ToString());
+
+            NtDecodeInstIdRequest instIdToken = new();
+            string jsonInstIdString = string.Empty;
+
+            if (docForInstId.RootElement.TryGetProperty("instrumentIdentifier", out JsonElement instrumentElement))
+            {
+                currentTransactionType = "INSTRUMENT INST";
+
+                Console.WriteLine("Instrument element is present.");
+
+                JsonNode node = JsonNode.Parse(instrumentElement.GetRawText())!;
+
+                Console.WriteLine($"Instrument element is parsed:\n {node.ToJsonString()}");
+
+                instIdToken.InstrumentId = node["id"]!.ToString();
+
+            }
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(instIdToken, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            response = await CallMinAPIs.SubmitForTokenDecryption(jsonString);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (response.Contains("error", StringComparison.OrdinalIgnoreCase) || response.Contains("exception", StringComparison.OrdinalIgnoreCase))
+            {
+                error = response;
+                SessionTransJson sessionResponse = new();
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+
+            }
+            else
+            {
+                var jsonNode = JsonNode.Parse(response!);
+
+                rootToken = JsonSerializer.Deserialize<RootToken>(jsonNode!.ToString())!;
+
+                instIdValues = new List<string>(PropertiesProcessor.GetProperties(rootToken!));
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+}
+

@@ -1,0 +1,37 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/generateroutes"
+
+@using System.Reflection
+@inject NavigationManager NavigationManager
+
+<h3>Available Routes</h3>
+
+@if (routes == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (routes.Count == 0)
+{
+    <p>No routes found.</p>
+}
+else
+{
+    <ul>
+        @foreach (var route in routes)
+        {
+            <li><b>@route.Route</b> → @route.ComponentName</li>
+        }
+    </ul>
+}
+
+@code {
+    private List<(string Route, string ComponentName)>? routes;
+
+    protected override void OnInitialized()
+    {
+        // Replace typeof(App) with any known component in your main project if needed
+        var assembly = typeof(App).Assembly;
+        routes = RouteGenerator.GetRoutes(assembly);
+    }
+}
+

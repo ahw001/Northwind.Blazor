@@ -1,0 +1,125 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/errorhandler"
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>Error Handler</h1>
+
+<FormSection>
+    @if (error is not null)
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="card">
+                    <div class="card-title"><h3>Response Data:</h3></div>
+                    <div class="card-body">
+                        @if (propertyValues != null && propertyValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in propertyValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else if (error is not null)
+                        {
+                            <div class="col-6">
+                                <strong class="alert-danger">@error</strong>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                Follow on Actions
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="/">Home</a></li>
+                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                <li><a class="dropdown-item" href="b2ccustomers">New Customer Query</a></li>
+            </ul>
+        </div>
+        <div>
+            <hr class="my-4">
+        </div>
+        <div class="col-6">
+            <strong class="alert-danger">@error</strong>
+        </div>
+    }
+</FormSection>
+
+@code {
+
+    private ISessionTransactions? _sessionTransactions;
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private string error = string.Empty;
+
+    private List<string> propertyValues = new List<string>();
+
+    protected override void OnInitialized()
+    {
+        if (sessionTransactions.Transactions.Count > 0)
+        {
+            try
+            {
+                _sessionTransactions = sessionTransactions;
+
+                sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+                if (sessionTransJson != null && sessionTransJson.error != null)
+                {
+                    if (sessionTransJson.error == "")
+                    {
+                        error = "No Error Found in Session Transactions.";
+                    }
+                    else
+                    {
+                        error = sessionTransJson.error;
+                        string transactionJson = sessionTransJson.TransactionJson?.ToString()!;
+                        if (transactionJson is not null)
+                        {
+                            FollowOnTransResponse errorResponseJson = JsonSerializer.Deserialize<FollowOnTransResponse>(transactionJson)!;
+
+                            propertyValues = PropertiesProcessor.GetProperties(errorResponseJson!);
+                            
+                        }
+                    }
+                }
+                else
+                {
+                    error = "No Error Found in Session Transactions.";
+                }
+            }             
+            catch (Exception ex)
+            {
+                error = ex.Message;
+            }
+
+        }
+    }
+
+    public bool HasOnlySubmitTimeUtc(ErrorResponse errorResponse)
+    {
+        // Check if SubmitTimeUtc is not its default value and all other properties are null or default
+        return errorResponse != null &&
+               errorResponse.Id == null &&
+               errorResponse.Status == null &&
+               errorResponse.Reason == null &&
+               errorResponse.Message == null &&
+               (errorResponse.Details == null || !errorResponse.Details.Any()) &&
+               errorResponse.ClientReferenceInformation == null &&
+               errorResponse.ConsumerAuthenticationInformation == null &&
+               errorResponse.ErrorInformation == null &&
+               errorResponse.SubmitTimeUtc != default(DateTime);
+    }
+
+}

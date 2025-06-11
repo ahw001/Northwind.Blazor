@@ -1,0 +1,178 @@
+﻿@page "/paprocessor"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+
+<h3>Check Enrollment-Validate Response</h3>
+
+<div class="container">
+    <div class="row row-cols-1 row-cols-md-2 gy-4">
+        @if (showCheckEnrollResponse)
+        {
+            <div class="col-sm-6 mb-3 mb-sm-0">
+                <div class="card">
+                    <div class="card-title">
+                        <h3>Response Data for Check Enrollement:</h3>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="flexcheckout">New FLex Transaction</a></li>
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    <div class="card-body">
+                        @if (propertyValues != null && propertyValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in propertyValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                    <div class="card-footer">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="flexcheckout">New FLex Transaction</a></li>
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (showValidateResponse)
+        {
+            <div class="col-sm-6 mb-3 mb-sm-0">
+                <div class="card">
+                    <div class="card-title">
+                        <h3>Response Data for Check Enrollement:</h3>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="pastepup">Perform Step Up URL</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    <div class="card-body">
+                        @if (propertyValues != null && propertyValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in propertyValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                    <div class="card-footer">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="pastepup">Perform Step Up URL</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+
+    private string transactionPageTitle = string.Empty;
+
+    private string error = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private CcTransactionTypes currentTransaction;
+
+    FollowOnTransResponse followOnTransResponse = new FollowOnTransResponse();
+
+    private bool showCheckEnrollResponse = true;
+    private bool showValidateResponse = false;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+    private List<string> propertyValues = new List<string>();
+    private List<string> propertyValues1 = new List<string>();
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+        transactionPageTitle = sessionTransJson.CurrentTransactionType.ToString() + ": Follow on Transaction";
+
+        if (sessionTransJson.TransactionJson is not null)
+        {
+            try
+            {
+                if (followOnTransResponse is null)
+                {
+                    followOnTransResponse = new FollowOnTransResponse();
+                }
+
+                currentTransaction = (CcTransactionTypes)sessionTransJson.CurrentTransactionType!;
+
+                Console.WriteLine($"Current Transaction Info\n: {sessionTransJson!.TransactionJson}");
+
+                followOnTransResponse = JsonSerializer.Deserialize<FollowOnTransResponse>(sessionTransJson!.TransactionJson!.ToString())!;
+
+                if (followOnTransResponse is not null  
+                 && followOnTransResponse.ConsumerAuthenticationInformation is not null
+                 && followOnTransResponse.ConsumerAuthenticationInformation.ParesStatus == "C"
+                 && followOnTransResponse.ConsumerAuthenticationInformation.VeresEnrolled == "Y")
+                {
+                     showCheckEnrollResponse = false;
+                     showValidateResponse = true;
+                }
+
+                propertyValues = PropertiesProcessor.GetProperties(followOnTransResponse!);
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+
+            }
+        }
+        StateHasChanged();
+    }
+}
+

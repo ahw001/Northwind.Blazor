@@ -1,0 +1,364 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/processauth"
+
+
+
+@inject IServiceProvider ServiceProvider
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h3>@transactionPageTitle</h3>
+
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mb-2">
+        @if (showFieldCard)
+        { 
+            @if (propertyList != null && propertyList.Count > 0)
+            {
+                <div class="row border border-primary">
+                    @if (authTransResponse?.TokenInformation?.InstrumentIdentifier?.Id is not null)
+                    {
+                        <div class="col p-3">
+                            <button class="btn btn-primary" type="button" @onclick="SubmitForTokenDecryption">
+                                SUBMIT FOR NETWORK TOKEN
+                            </button>
+                        </div>
+                    }
+                    <div class="col p-3">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                @if (saleButtonList)
+                                {
+                                    <li><a class="dropdown-item" href="void">Void</a></li>
+                                    <li><a class="dropdown-item" href="refundform">Credit</a></li>
+                                    <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+
+                                }
+                                else
+                                {
+                                    <li><a class="dropdown-item" href="capture">Capture</a></li>
+                                    <li><a class="dropdown-item" href="reversal">Reversal</a></li>
+                                    <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <QuickGrid Items="propertyList.AsQueryable()" TItem="KeyValuePair<string, string>" class="table table-striped">
+                    
+                    <TemplateColumn Title="Auth Response Field">
+                        <div style="border: 1px solid black;">
+                            @context.Key
+                        </div>
+                    </TemplateColumn>
+                    
+                    <!-- Wrapping the content of TemplateColumn with a div to apply border -->
+                    <TemplateColumn Title="Value">
+                        <div style="border: 1px solid black;">
+                            @((MarkupString)string.Join("<br />", Enumerable.Range(0, (context.Value.Length + 29) / 30).Select(i => context.Value.Substring(i * 30, Math.Min(30, context.Value.Length - i * 30)))))
+                        </div>
+                    </TemplateColumn>
+                </QuickGrid>
+            }
+            else
+            {
+                <p>No properties to display.</p>
+            }
+            <div class="row gy-2">
+                @if (authTransResponse?.TokenInformation?.InstrumentIdentifier?.Id is not null)
+                {
+                    <div class="col p-3">
+                        <button class="btn btn-primary" type="button" @onclick="SubmitForTokenDecryption">
+                            SUBMIT FOR NETWORK TOKEN
+                        </button>
+                    </div>
+                }
+                <div class="col p-3">
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Follow on Actions
+                        </button>
+                        <ul class="dropdown-menu">
+                            @if (saleButtonList)
+                            {
+                                <li><a class="dropdown-item" href="void">Void</a></li>
+                                <li><a class="dropdown-item" href="refundform">Credit</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+
+                            }
+                            else
+                            {
+                                <li><a class="dropdown-item" href="capture">Capture</a></li>
+                                <li><a class="dropdown-item" href="reversal">Reversal</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            }
+        </div>
+        <div class="col-md-6 mb-2">
+            @if (showNtValueCard)
+            {
+                <div class="card">
+                    <div class="card-body">
+                        @if (propertyValues != null && propertyValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in propertyValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="col-md-6 mb-2">
+            @if (showNtValueCard)
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                @if (saleButtonList)
+                                {
+                                    <li><a class="dropdown-item" href="void">Void</a></li>
+                                    <li><a class="dropdown-item" href="credit">Credit</a></li>
+                                    <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+
+                                }
+                                else
+                                {
+                                    <li><a class="dropdown-item" href="capture">Capture</a></li>
+                                    <li><a class="dropdown-item" href="reversal">Reversal</a></li>
+                                    <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+    @if (error is not null)
+    {
+    <FormSection>
+
+            <div class="row p-5">
+                <stong class="alert-danger">@error</stong>
+            </div>
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                Follow on Actions
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+            </ul>
+
+    </FormSection>
+    }
+</div>
+
+
+
+
+@code {
+    private string transactionPageTitle = "Auth Results and Subsequent Transactions";
+
+    private ITransactionJson _transactionJson = new TransactionJson();
+    private ICustomersScoped _customersScoped = new CustomersScoped();
+
+    private B2cCustomer? b2CCustomer = new();
+    private SessionTransJson? sessionTransJson = new();
+
+    private AuthTransResponse? authTransResponse = new();
+    private NtDecodeInstIdRequest ntDecodeInstIdRequest = new();
+    private RootToken decryptedNt = new();
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private IList<JsonNode>? transJsonNodes;
+
+    private JsonNode? transJsonNode;
+    private JsonNode? jsonNtNode;
+
+    private List<string> propertyValues = new List<string>();
+    private Dictionary<string, string> propertyValuesDict = new Dictionary<string, string>();
+    private List<KeyValuePair<string, string>> propertyList = new();
+
+    private string? error;
+
+    System.Type? type;
+    FieldInfo[]? fields;
+
+    bool showFieldCard = true;
+    bool showJsonValueCard = true;
+    bool showNtValueCard = false;
+    bool saleButtonList = false;
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        cartService.DeleteAll();
+
+        base.OnInitialized();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            type = authTransResponse?.GetType();
+
+            _customersScoped = customersScoped;
+            //b2CCustomer = _customersScoped.FormData.LastOrDefault();
+
+            fields = type?.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+            sessionTransJson = _sessionTransactions.Transactions.LastOrDefault();
+            transJsonNode = sessionTransJson!.TransactionJson;
+
+            if (transJsonNode is not null)
+            {
+                try
+                {
+                    authTransResponse = JsonSerializer.Deserialize<AuthTransResponse>(transJsonNode.ToString());
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Exception:{ex.Message}");
+                    error = ex.Message;
+                }
+
+
+                if (authTransResponse is not null)
+                {
+                    sessionTransJson.TransactionAmount = authTransResponse!.OrderInformation!.AmountDetails!.AuthorizedAmount;
+                    propertyValues = PropertiesProcessor.GetProperties(authTransResponse);
+                    propertyValuesDict = DictPropertiesProcessor.GetProperties(authTransResponse);
+                    propertyList = propertyValuesDict.ToList();
+
+                    if (sessionTransJson?.CurrentTransactionType == CcTransactionTypes.SALE)
+                    {
+                        saleButtonList = true;
+                    }
+                }
+                else
+                {
+                    showFieldCard = false;
+                    showJsonValueCard = false;
+                    showNtValueCard = false;
+                    saleButtonList = false;
+                    error = "Problem with retrieving authorization response.";
+                }
+            }
+            else
+            {
+                showFieldCard = false;
+                showJsonValueCard = false;
+                showNtValueCard = false;
+                saleButtonList = false;
+                error = "No transaction found in session tranactions";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception:{ex.Message}");
+            error = ex.Message;
+        }
+
+        await Task.Delay(10); // Optionally add a slight delay to ensure styles are loaded
+        StateHasChanged();
+
+        await base.OnInitializedAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Perform any necessary logic (e.g., ensuring styles are loaded)
+            // Then force a re-render after loading logic or styles
+            await Task.Delay(10); // Optionally add a slight delay to ensure styles are loaded
+            StateHasChanged(); // This will force the component to re-render
+        }
+    }
+
+    private async Task SubmitForTokenDecryption()
+    {
+        try
+        {
+            showFieldCard = false;
+            showJsonValueCard = false;
+            showNtValueCard = true;
+
+            string response = string.Empty;
+
+            ntDecodeInstIdRequest.InstrumentId = authTransResponse?.TokenInformation?.InstrumentIdentifier?.Id!;
+            ntDecodeInstIdRequest.PaymentCardId = authTransResponse?.PaymentCardId!;
+
+            b2CCustomer = new();
+            propertyValues = new();
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(ntDecodeInstIdRequest, options);
+
+            response = await CallMinAPIs.SubmitForTokenDecryption(jsonString);
+
+            if (response.Contains("error", StringComparison.OrdinalIgnoreCase) || response.Contains("exception", StringComparison.OrdinalIgnoreCase))
+            {
+                error = response;
+                SessionTransJson sessionResponse = new();
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+
+            }
+            else
+            {
+                jsonNtNode = JsonNode.Parse(response!);
+                Console.WriteLine($"JSON NODE FROM NETWORK TOKEN TRANS RESPONSE = {jsonNtNode?.ToString()}\n\n");
+
+                decryptedNt = JsonSerializer.Deserialize<RootToken>(jsonNtNode)!;
+
+                transactionPageTitle = "Decrypted Network Token";
+
+                propertyValues = PropertiesProcessor.GetProperties(decryptedNt);
+            }
+        } 
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    public void SetTransJsonNode()
+    {
+        transJsonNodes = _transactionJson.Transactions;
+        transJsonNode = transJsonNodes.FirstOrDefault();
+    }
+}

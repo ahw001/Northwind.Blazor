@@ -1,0 +1,577 @@
+﻿@page "/b2ccustomers"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject NavigationManager Navigation
+
+@inject ISessionTransactions sessionTransactions
+
+<script src="Components/Pages/DBQueries/DBGetB2cCustomer.razor.js"></script>
+
+<h1>Process Customers</h1>
+
+@if (singleCustomer)
+{
+    <div class="col-8">
+        <FormSectionMedium Title="Query Customers">
+            <EditForm Model="b2CCustomer" OnSubmit="GetB2CCustomer">
+                <div class="row gy-2 border my-3 pb-2">
+                    <div class="col-8">
+                        <div class="p-3 border bg-light">
+                            <label for="id" class="form-label">Get Customer By ID:</label>
+                            <InputNumber @bind-Value="b2CCustomer.B2cCustomerId" class="form-control" id="id" />
+                        </div>
+                        <div class="p-3 border bg-light">
+                            <button class="w-100 btn btn-primary btn-sm" type="submit">Get Customer Info</button>
+                        </div>
+                    </div>
+                </div>
+            </EditForm>
+        </FormSectionMedium>
+    </div>
+}
+
+@if (selectedPagedCustomer)
+{
+    <h3>List of Customers</h3>
+
+    <h4 class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-primary">Total Customers</span>
+        <span class="badge bg-primary rounded-pill">
+            @customerCount
+        </span>
+    </h4>
+
+    <QuickGrid Items="@queryablePagedCustomers" Class="table table-striped table-bordered" Pagination="pagination">
+        <TemplateColumn Title="ID">
+            <a href="javascript:void(0);" @onclick="() => ShowOrder(context.B2cCustomerId)">@context.B2cCustomerId</a>
+        </TemplateColumn>
+        <PropertyColumn Property="@(c => c.FirstName)" Title="First Name" Sortable="true"/>
+        <PropertyColumn Property="@(c => c.LastName)" Title="Last Name" Sortable="true" />
+        <PropertyColumn Property="@(c => c.Address1)" Title="Address" Sortable="true" />
+        <PropertyColumn Property="@(c => c.Country)" Title="Country" Sortable="true" />
+        <TemplateColumn Title="Actions">
+            <div class="col p-1">
+                <button class="btn btn-primary btn-sm" @onclick="() => GetPaymentCardInfo(context.B2cCustomerId)">Get Payment Info</button>
+            </div>
+        </TemplateColumn>
+    </QuickGrid>
+
+    <Paginator State="pagination"></Paginator>
+
+    <h4 class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-primary">Total Customers</span>
+        <span class="badge bg-primary rounded-pill">
+            @customerCount
+        </span>
+    </h4>
+    <div class="row">
+        <div class="col p-1">
+            <button class="btn btn-primary btn-sm" @onclick="() => GetPagedB2CCustomers()">Get Next 10 Customers</button>
+        </div>
+    </div>
+
+
+    <hr class="my-4">
+
+
+}
+
+
+@if (selectedCustomer)
+{
+    <h3>Customer ID: @dbResultB2CCustomer?.B2cCustomerId</h3>
+    <table class="table table-striped table-bordered">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Address</th>
+                <th>Country</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>@dbResultB2CCustomer?.B2cCustomerId</td>
+                <td>@dbResultB2CCustomer?.FirstName</td>
+                <td>@dbResultB2CCustomer?.LastName</td>
+                <td>@dbResultB2CCustomer?.Address1</td>
+                <td>@dbResultB2CCustomer?.Country</td>
+            </tr>
+        </tbody>
+    </table>
+
+    @if (showPaymentCardButton)
+    {
+        <div class="row">
+            <div class="col p-1">
+                <button class="btn btn-primary btn-sm" @onclick="() => GetPaymentCardInfo(dbResultB2CCustomer!.B2cCustomerId!)">Get Payment Info</button>
+            </div>
+        </div>
+
+        <hr class="my-4">
+    }
+
+    <div class="col p-1">
+        <button class="btn btn-primary btn-sm" @onclick="() => CreateToken()">Create New Token for Customer</button>
+    </div>
+}
+
+
+@if (selectedOrder)
+{
+    <hr class="my-4">
+
+    <h3>Orders from Customer</h3>
+    <QuickGrid Items="@queryableOrders" Class="table table-striped table-bordered">
+        <PropertyColumn Property="@(o => o.B2cCustomerId)" Title="Customer ID" />
+        <PropertyColumn Property="@(o => o.OrderId)" Title="Order ID"/>
+        <PropertyColumn Property="@(o => o.OrderDate)" Title="Order Date" />
+    </QuickGrid>
+}
+
+@if (selectedPaymentCards)
+{
+    <h3>Customer Payment Cards</h3>
+    <QuickGrid Items="@queryablePaymentCards" Class="table table-striped table-bordered">
+        <TemplateColumn Title="Payment Insts">
+            <div class="col p-1">
+                <button class="btn btn-primary btn-sm" @onclick="() => CreateNewPaymentInstrument(context.B2cCustomerId)">Create New Payment Card</button>
+            </div>
+        </TemplateColumn>
+        <TemplateColumn Title="Net Tokens">
+            <div class="col p-1">
+                <button class="btn btn-primary btn-sm" @onclick="() => GetNetworkTokensById(context.PaymentCardId)">Get Network Tokens</button>
+            </div>
+        </TemplateColumn>
+        <TemplateColumn Title="Shipping Addresses">
+            <div class="col p-1">
+                <button class="btn btn-primary btn-sm" @onclick="() => GetShippingAddresses(context.CustomerInstrumentId!)">Get Shipping Addresses</button>
+            </div>
+        </TemplateColumn>
+        <PropertyColumn Property="@(p => p.PaymentCardId)" Title="Payment Card ID" />
+        <PropertyColumn Property="@(p => p.B2cCustomerId)" Title="Customer ID" />
+        <PropertyColumn Property="@(p => p.CustomerInstrumentId)" Title="Cust Inst ID" />
+        <PropertyColumn Property="@(p => p.AccountNumber)" Title="Account Number" />
+        <PropertyColumn Property="@(p => p.ExpMonth)" Title="Exp Month" />
+        <PropertyColumn Property="@(p => p.ExpYear)" Title="Exp Year" />
+    </QuickGrid>
+
+    <hr class="my-4">
+
+    <div class="row">
+        <div class="col p-1">
+            <button class="btn btn-primary btn-sm" @onclick="() => GetPaymentCardInfo(dbResultB2CCustomer!.B2cCustomerId!)">Get Payment Instruments</button>
+        </div>
+    </div>
+
+    <hr class="my-4">
+}
+
+@if (showPciTokens)
+{
+    <h3>PCI (TMS) Tokens:</h3>
+    <QuickGrid Items="@queryablePaymentCards" Class="table table-striped table-bordered">
+        <PropertyColumn Property="@(q => q.PaymentCardId)" Title="Database Payment Card ID" />
+        <PropertyColumn Property="@(q => q.TokenizedCardType )" Title="Tokenized Card Type" />
+        <PropertyColumn Property="@(q => q.InstrumentIdentifierId )" Title="Instrument Identifier" />
+        <PropertyColumn Property="@(q => q.PaymentAccountReferenceNumber)" Title="Payment Account Reference Number" />
+        <PropertyColumn Property="@(q => q.CustomerInstrumentId)" Title="Customer Instrument ID" />
+        <PropertyColumn Property="@(q => q.ExpMonth)" Title="Token Exp Month" />
+        <PropertyColumn Property="@(q => q.ExpYear)" Title="Token Exp Year" />
+    </QuickGrid>
+
+    <hr class="my-4">
+
+    <div class="col p-1">
+        <button class="btn btn-primary btn-sm" @onclick="() => PerformCloudPosTokenReturn()">Perform Cloud POS Token Return</button>
+    </div>
+
+    <hr class="my-4">
+
+}
+
+@if (showNetworkTokens)
+{
+    <h3>Network Tokens:</h3>
+    <QuickGrid Items="@queryableNetworkTokens" Class="table table-striped table-bordered">
+        <PropertyColumn Property="@(q => q.PaymentCardId)" Title="Payment Card ID" />
+        <PropertyColumn Property="@(q => q.PaymentTokenId )" Title="Payment Token ID" />
+        <PropertyColumn Property="@(q => q.InstrumentIdentifierId )" Title="Token Value" />
+        <PropertyColumn Property="@(q => q.TokenRequestorId)" Title="Token Requestor ID" />
+        <PropertyColumn Property="@(q => q.TokenAccountNumber)" Title="Token Account Number" />
+        <PropertyColumn Property="@(q => q.TokenExpMonth)" Title="Token Exp Month" />
+        <PropertyColumn Property="@(q => q.TokenExpYear)" Title="Token Exp Year" />
+    </QuickGrid>
+
+    <hr class="my-4">
+
+}
+
+
+
+@code {
+
+    PaginationState pagination = new PaginationState { ItemsPerPage = 10 };
+
+    private PaymentCardDto paymentCardDto = new PaymentCardDto();
+
+    private DbResultB2cCustomer? dbResultB2CCustomer = new();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+
+    private B2cCustomer b2CCustomer = new();
+
+
+    private IQueryable<DbResultB2cCustomer>? queryablePagedCustomers;
+    private IQueryable<DBOrder>? queryableOrders;
+    private IQueryable<PaymentCardDto>? queryablePaymentCards;
+    private IQueryable<NetworkTokenInfoDto>? queryableNetworkTokens;
+
+    List<DbResultB2cCustomer> pageDb2CCustomers = new List<DbResultB2cCustomer>();
+    List<DBOrder> orders = new List<DBOrder>();
+    List<PaymentCardDto> paymentCards = new List<PaymentCardDto>();
+    List<NetworkTokenInfoDto> networkTokenInfoDtos = new List<NetworkTokenInfoDto>();
+
+    private int pageIndex = 0;
+    private int pageSize = 100;
+    private int customerCount = 0;
+
+    private string DBb2cCustomerIdString = string.Empty;
+    private string error = string.Empty;
+
+    private bool showNetworkTokens = false;
+    private bool singleCustomer = true;
+    private bool selectedOrder = false;
+    private bool selectedPaymentCards = false;
+    private bool selectedCustomer = false;
+    private bool selectedPagedCustomer = true;
+    private bool showPaymentCardButton = true;
+    private bool showPciTokens = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        customerCount = await DBCustomerServices.GetCustomerCount();
+
+        if (b2CCustomer is null)
+        {
+            b2CCustomer = new();
+        }
+
+        JsonSerializerOptions jsonOptions = new()
+            {
+                PropertyNameCaseInsensitive = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
+
+        HttpClient client = httpClientFactory.CreateClient("Northwind.WebApi.Service");
+        string path = $"/api/B2cCustomer/paging/{pageIndex}/{pageSize}";
+        try
+        {
+            pageDb2CCustomers = (await client.GetFromJsonAsync<List<DbResultB2cCustomer>>(
+            path, jsonOptions))!;
+            queryablePagedCustomers = pageDb2CCustomers.AsQueryable();
+            pageIndex = pageIndex + 10;
+        }
+
+        catch (Exception ex)
+        {
+            Console.WriteLine($"{ex.GetType()}: {ex.Message}");
+        }
+
+        StateHasChanged();
+    }
+
+    private void ShowOrder(int b2cCustomerId)
+    {
+        GetOrderForCustomer(b2cCustomerId);
+    }
+
+    private async Task GetB2CCustomer()
+    {
+        Console.WriteLine($"Submitting form with b2CCustomer.B2cCustomerId: {b2CCustomer.B2cCustomerId}");
+
+        if (b2CCustomer.B2cCustomerId == 0)
+        {
+            Console.WriteLine("b2CCustomer.B2cCustomerId is zero, returning without making API call.");
+            return;
+        }
+
+
+        dbResultB2CCustomer = new();
+
+        JsonSerializerOptions jsonOptions = new()
+            {
+                PropertyNameCaseInsensitive = true
+            };
+
+        HttpClient client = httpClientFactory.CreateClient("Northwind.WebApi.Service");
+        string path = $"api/b2ccustomers/{b2CCustomer.B2cCustomerId}";
+        try
+        {
+            dbResultB2CCustomer = await client.GetFromJsonAsync<DbResultB2cCustomer>(path, jsonOptions);
+            queryablePaymentCards = paymentCards.AsQueryable();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"{ex.GetType()}: {ex.Message}");
+        }
+
+        selectedCustomer = true;
+        selectedPaymentCards = false;
+        selectedPagedCustomer = false;
+        singleCustomer = false;
+
+        StateHasChanged(); // Ensure state change is notified
+        Console.WriteLine("State updated after form submission.");
+    }
+
+    private void CreateNewPaymentInstrument(int b2cCustomerId)
+    {
+        paymentCardDto.B2cCustomerId = b2cCustomerId;
+
+        if (paymentCardDto.B2cCustomerId > 0)
+        {
+            sessionTransJson.TransactionJson = JsonSerializer.Serialize<PaymentCardDto>(paymentCardDto);
+            sessionTransactions.AddTrans(sessionTransJson);
+            Navigation.NavigateTo("/newpaymentcard");
+        }
+        else
+        {
+            error = "Error: No Customer ID provided.";
+        }
+    }
+
+    private async void GetPaymentCardInfo(int customerId)
+    {
+        if (queryablePagedCustomers == null)
+        {
+            Console.WriteLine("queryablePagedCustomers is null.");
+            return;
+        }
+
+        int totalCustomers = queryablePagedCustomers.Count();
+        try
+        {
+            dbResultB2CCustomer = queryablePagedCustomers.FirstOrDefault(c => c.B2cCustomerId == customerId);
+            Console.WriteLine($"Customer ID: {customerId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"{ex.GetType()}: {ex.Message}");
+            error = ex.Message;
+        }
+
+        if (dbResultB2CCustomer is not null)
+        {
+            try
+            {
+                paymentCards = await DBPaymentServices.GetPaymentCardByCustId(customerId);
+                queryablePaymentCards = paymentCards.AsQueryable();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"{ex.GetType()}: {ex.Message}");
+            }
+
+            selectedCustomer = true;
+            selectedPagedCustomer = false;
+            selectedPaymentCards = true;
+            singleCustomer = false;
+            showPaymentCardButton = false;
+            showNetworkTokens = false;
+            showPciTokens = true;
+        }
+        else
+        {
+            error = $"Error: Customer ID is null";
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+
+        StateHasChanged();
+    }
+
+    private async void GetOrderForCustomer(int b2cCustomerId)
+    {
+
+        JsonSerializerOptions jsonOptions = new()
+        {
+            
+            PropertyNameCaseInsensitive = true
+        };
+
+        HttpClient client = httpClientFactory.CreateClient("Northwind.WebApi.Service");
+        string path = $"api/getorders/{b2cCustomerId}";
+        try
+        {
+            orders = (await client.GetFromJsonAsync<List<DBOrder>>(
+            path, jsonOptions))!;
+            queryableOrders = orders.AsQueryable();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"{ex.GetType()}: {ex.Message}");
+        }
+
+        selectedOrder = true;
+
+        StateHasChanged();
+
+    }
+
+    public async void GetPagedB2CCustomers()
+    {
+        JsonSerializerOptions jsonOptions = new()
+        {
+            
+            PropertyNameCaseInsensitive = true
+        };
+
+        HttpClient client = httpClientFactory.CreateClient("Northwind.WebApi.Service");
+        string path = $"/api/B2cCustomer/paging/{pageIndex}/{pageSize}";
+        try
+        {
+            pageDb2CCustomers = (await client.GetFromJsonAsync<List<DbResultB2cCustomer>>(
+            path, jsonOptions))!;
+            queryablePagedCustomers = pageDb2CCustomers.AsQueryable();
+            pageIndex = pageIndex + 10;
+        }
+
+        catch (Exception ex)
+        {
+            Console.WriteLine($"{ex.GetType()}: {ex.Message}");
+        }
+
+        StateHasChanged();
+    }
+
+    public async void GetNetworkTokensById(int paymentCardId)
+    {
+        try
+        {
+            networkTokenInfoDtos = await DBPaymentServices.GetNetworkTokens(paymentCardId);
+            queryableNetworkTokens = networkTokenInfoDtos.AsQueryable();
+            if ((queryableNetworkTokens is not null) && (queryableNetworkTokens.Any()))
+            {
+                selectedCustomer = true;
+                showNetworkTokens = true;
+                selectedPaymentCards = true;
+                singleCustomer = false;
+                selectedOrder = false;
+                selectedPagedCustomer = false;
+                showPaymentCardButton = false;
+
+                StateHasChanged();
+            }
+            else
+            {
+                error = $"Error: No Network Tokens Found";
+                SessionTransJson sessionResponse = new();
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"Error: {ex.Message}";
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    public async void GetShippingAddresses(string CustomerInstrumentId)
+    {
+        try
+        {
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.SHIPPING_ID_RETRIEVE;
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.SHIPPING_ID_RETRIEVE;
+
+            sessionTransJson.TransactionId = CustomerInstrumentId;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            string jsonString = JsonSerializer.Serialize(sessionTransJson, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && sessionResponse.TransactionStatus.Contains("error"))
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+
+        }
+        catch (Exception ex)
+        {
+            error = $"Error: {ex.Message}";
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    public void CreateToken()
+    {
+        if (dbResultB2CCustomer is not null)
+        {
+            b2CCustomer.B2cCustomerId = dbResultB2CCustomer.B2cCustomerId;
+            b2CCustomer.FirstName = dbResultB2CCustomer.FirstName;
+            b2CCustomer.LastName = dbResultB2CCustomer.LastName;
+            b2CCustomer.Address1 = dbResultB2CCustomer.Address1;
+            b2CCustomer.City = dbResultB2CCustomer.City;
+            b2CCustomer.Country = dbResultB2CCustomer.Country;
+            b2CCustomer.PostalCode = dbResultB2CCustomer.PostalCode;
+            b2CCustomer.AdministrativeArea = dbResultB2CCustomer.Region;
+            b2CCustomer.Phone = dbResultB2CCustomer.Phone;
+            b2CCustomer.Email = dbResultB2CCustomer.Email;
+            sessionTransJson.Customer = b2CCustomer;
+            sessionTransactions.AddTrans(sessionTransJson);
+            Navigation.NavigateTo("/tokencreate");
+        }
+        else
+        {
+            error = "Error: No Customer Object Present.";
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    public void PerformCloudPosTokenReturn()
+    {
+        if (paymentCards is not null)
+        {
+            PaymentCardDto paymentCardDto = paymentCards.FirstOrDefault()!;
+            b2CCustomer.InstrumentIdentifier = paymentCardDto.InstrumentIdentifierId;
+            sessionTransJson.Customer = b2CCustomer;
+            sessionTransactions.AddTrans(sessionTransJson);
+            Navigation.NavigateTo("/cloudpostokenreturn");
+        }
+        else
+        {
+            error = "Error: No Customer Object Present.";
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+}
+

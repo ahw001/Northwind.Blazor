@@ -1,0 +1,194 @@
+﻿@page "/flexcheckout"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ICustomersScoped custTransFormDto
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h3>Flex Checkout</h3>
+
+<div class="container">
+    <main>
+
+        @if (Show)
+        {
+            <CustomerComponent ButtonText="Flex Checkout" FormElements="HomeFormElements" FormCustomer="b2CCustomer" ValidSubmit="Submit"></CustomerComponent>
+        }
+
+        @if (error is not null)
+        {
+            <div class="row p-5">
+                <stong class="alert-danger">@error</stong>
+            </div>
+            <br />
+            <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasExample" aria-controls="offcanvasExample">
+                Show Error Details
+            </button>
+            <br />
+            <ErorrDetails TransactionJson="_transactionJson"></ErorrDetails>
+        }
+    </main>
+</div>
+
+<div>
+    <footer class="my-5 pt-5 text-body-secondary text-center text-small">
+        <p class="mb-1">&copy; 2017–2024 Company Name</p>
+        <ul class="list-inline">
+            <li class="list-inline-item"><a href="#">Privacy</a></li>
+            <li class="list-inline-item"><a href="#">Terms</a></li>
+            <li class="list-inline-item"><a href="#">Support</a></li>
+        </ul>
+    </footer>
+</div>
+
+@code {
+
+    List<string> HomeFormElements = new List<string> { "ShowMainForm", "ShowBilling", "ShowDefaults", "ShowAuthCapture", "ShowCart" };
+
+    public bool IsChecked { get; set; } = false;
+    public bool CaptureChecked { get; set; } = false;
+    public bool newTransaction { get; set; } = true;
+    public bool Show { get; set; } = true;
+    private bool containsError = false;
+
+
+    private string? error;
+
+    private DBSampleCustomerDatum? customer = new();
+    private B2cCustomer b2CCustomer = new();
+
+    private ICustomersScoped _custTransFormDto = new CustomersScoped();
+    private static List<BasicErrorInfo> basicErrorInfos = new List<BasicErrorInfo>();
+
+    //private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new();
+
+    private JsonNode? _transactionJson = null;
+
+    [Parameter, EditorRequired] public EventCallback<JsonNode> OnSelected { get; set; }
+
+
+    protected override void OnInitialized()
+    {
+        sessionTransactions.DeleteAll();
+        customersScoped.DeleteAll();
+    }
+
+    private async Task Submit(B2cCustomer submittedCustomer)
+    {
+        try
+        {
+            B2cCustomer b2CCustomer = new();
+
+            b2CCustomer.Address1 = submittedCustomer.Address1;
+            b2CCustomer.Address2 = submittedCustomer.Address2 ?? "none";
+            b2CCustomer.Address3 = submittedCustomer.Address3 ?? "none";
+            b2CCustomer.AdministrativeArea = submittedCustomer.AdministrativeArea ?? "FU";
+            b2CCustomer.Country = submittedCustomer.Country;
+            b2CCustomer.BuildingNumber = submittedCustomer.BuildingNumber ?? "none";
+            b2CCustomer.District = submittedCustomer.District ?? "none";
+            b2CCustomer.City = submittedCustomer.City;
+            b2CCustomer.PostalCode = submittedCustomer.PostalCode;
+            b2CCustomer.CompanyName = submittedCustomer.CompanyName ?? "none";
+            b2CCustomer.CompanyAddress1 = submittedCustomer.Address1 ?? "none";
+            b2CCustomer.CompanyAdministrativeArea = submittedCustomer.AdministrativeArea ?? "FU";
+            b2CCustomer.CompanyBuildingNumber = submittedCustomer.CompanyBuildingNumber ?? "none";
+            b2CCustomer.CompanyCountry = submittedCustomer.Country ?? "none";
+            b2CCustomer.CompanyDistrict = submittedCustomer.CompanyDistrict ?? "none";
+            b2CCustomer.CompanyLocality = submittedCustomer.CompanyLocality ?? "none";
+            b2CCustomer.CompanyPostalCode = submittedCustomer.PostalCode ?? "none";
+            b2CCustomer.Email = submittedCustomer.Email;
+            b2CCustomer.FirstName = submittedCustomer.FirstName;
+            b2CCustomer.LastName = submittedCustomer.LastName;
+            b2CCustomer.MiddleName = submittedCustomer.MiddleName ?? "none";
+            b2CCustomer.Title = submittedCustomer.Title ?? "none";
+            b2CCustomer.Phone = submittedCustomer.Phone;
+            b2CCustomer.PhoneType = submittedCustomer.PhoneType ?? "none";
+            b2CCustomer.ShippingAddress1 = submittedCustomer.Address1;
+            b2CCustomer.ShippingAddress2 = submittedCustomer.Address2 ?? "none";
+            b2CCustomer.ShippingAddress3 = submittedCustomer.Address3 ?? "none";
+            b2CCustomer.ShippingAdministrativeArea = submittedCustomer.AdministrativeArea ?? "FU";
+            b2CCustomer.ShippingBuildingNumber = submittedCustomer.BuildingNumber ?? "none";
+            b2CCustomer.ShippingCountry = submittedCustomer.Country;
+            b2CCustomer.ShippingCity = submittedCustomer.City;
+            b2CCustomer.Email = submittedCustomer.Email;
+            b2CCustomer.ShippingPostalCode = submittedCustomer.PostalCode;
+            b2CCustomer.ShippingFirstName = submittedCustomer.FirstName;
+            b2CCustomer.ShippingLastName = submittedCustomer.LastName;
+            b2CCustomer.ShippingPhone = submittedCustomer.Phone;
+            b2CCustomer.ShippingPhoneType = submittedCustomer.PhoneType ?? "none";
+            b2CCustomer.TotalAmount = submittedCustomer.TotalAmount;
+            b2CCustomer.Cart = submittedCustomer.Cart;
+
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.FLEX_CHECKOUT;
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.FLEX_CHECKOUT;
+
+            sessionTransJson.Customer = b2CCustomer;
+
+            //TODO : Add the customer to PA Validate Object
+            customersScoped.AddCustData(b2CCustomer);
+
+            sessionTransactions.AddTrans(sessionTransJson);
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(b2CCustomer, options);
+
+            custTransFormDto.AddCustData(b2CCustomer);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            var jsonNode = sessionResponse.TransactionJson;
+
+            string[] errorKeywords = ["INVALID", "ERROR", "FAILED", "DECLINED", "invalid", "error", "failed", "declined"];
+
+
+            if (sessionResponse is null)
+            {
+                StateHasChanged(); // optional
+                error = "Session Response is null";
+                sessionResponse = new SessionTransJson();
+                sessionResponse.JsonTransactionStateValues = TransactionStateValues.Error;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+
+            if (sessionResponse is not null && sessionResponse.TransactionJson is not null)
+            {
+                basicErrorInfos = JsonErrorExtractor.ExtractErrorObjects(sessionResponse.TransactionJson.ToString());
+
+                containsError = basicErrorInfos.Any(e =>
+                    !string.IsNullOrWhiteSpace(e.Status) &&
+                    errorKeywords.Any(keyword =>
+                        e.Status.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (sessionResponse != null && containsError)
+            {
+                StateHasChanged(); // optional
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else
+            {
+                sessionTransactions.AddTrans(sessionResponse!);
+                Navigation.NavigateTo("/flexprocessor");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+}

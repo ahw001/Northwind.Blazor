@@ -1,0 +1,47 @@
+{
+  "clientReferenceInformation": {
+    "code": "TC50171_3"
+  },
+  "processingInformation": {
+    "actionList": [
+      "TOKEN_CREATE"
+    ],
+    "actionTokenTypes": [
+      "paymentInstrument"
+    ]
+  },
+  "paymentInformation": {
+    "card": {
+      "number": "4111111111111111",
+      "expirationMonth": "12",
+      "expirationYear": "2031",
+      "securityCode": "123"
+    }
+  },
+  "orderInformation": {
+    "amountDetails": {
+      "totalAmount": "0.00",
+      "currency": "USD"
+    },
+    "billTo": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "address1": "1 Market St",
+      "locality": "san francisco",
+      "administrativeArea": "CA",
+      "postalCode": "94105",
+      "country": "US",
+      "email": "test@cybs.com",
+      "phoneNumber": "4158880000"
+    },
+    "shipTo": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "address1": "1 Market St",
+      "locality": "san francisco",
+      "administrativeArea": "CA",
+      "postalCode": "94105",
+      "country": "US"
+    }
+  }
+}

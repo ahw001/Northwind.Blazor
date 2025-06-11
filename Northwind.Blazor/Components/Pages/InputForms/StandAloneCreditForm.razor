@@ -1,0 +1,158 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/standalonecredit"
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+
+<title>Stand Alone Credit</title>
+
+<div class="container">
+    <main>
+        <div class="py-5 text-center">
+            <h2>Stand Alone Credit</h2>
+        </div>
+
+        @if (Show)
+        {
+            <CustomerComponent ButtonText="Process Credit" FormElements="HomeFormElements" FormCustomer="b2CCustomer" ValidSubmit="Submit"></CustomerComponent>
+        }
+
+        @if (error is not null)
+        {
+            <div class="row p-5">
+                <stong class="alert-danger">@error</stong>
+            </div>
+            <br />
+            <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasExample" aria-controls="offcanvasExample">
+                Show Error Details
+            </button>
+            <br />
+            <ErorrDetails TransactionJson="_transactionJson"></ErorrDetails>
+        }
+
+    </main>
+
+
+
+    <footer class="my-5 pt-5 text-body-secondary text-center text-small">
+        <p class="mb-1">&copy; 2017–2024 Company Name</p>
+        <ul class="list-inline">
+            <li class="list-inline-item"><a href="#">Privacy</a></li>
+            <li class="list-inline-item"><a href="#">Terms</a></li>
+            <li class="list-inline-item"><a href="#">Support</a></li>
+        </ul>
+    </footer>
+</div>
+
+@code {
+
+
+    List<string> HomeFormElements = new List<string> { "ShowMainForm", "ShowBilling", "ShowAccountDetails", "ShowDefaults", "ShowStandaloneCredit" };
+
+    public bool IsChecked { get; set; } = false;
+    public bool CaptureChecked { get; set; } = false;
+    public bool newTransaction { get; set; } = true;
+    public bool Show { get; set; } = true;
+    private bool containsError = false;
+
+    private static List<BasicErrorInfo> basicErrorInfos = new List<BasicErrorInfo>();
+
+    private string? error;
+
+    private DBSampleCustomerDatum? customer = new();
+    private B2cCustomer b2CCustomer = new();
+
+    private PayerAuthCardSampleDto? sampleCard = new();
+    private ICustomersScoped _customersScoped = new CustomersScoped();
+
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new();
+
+    private CreditTransResponse? creditTransResponse = new();
+
+    private JsonNode? _transactionJson = null;
+
+    [Parameter, EditorRequired] public EventCallback<JsonNode> OnSelected { get; set; }
+
+    protected override void OnInitialized()
+    {
+
+        sessionTransactions.DeleteAll();
+
+
+    }
+
+
+    private async Task Submit(B2cCustomer submittedCustomer)
+    {
+        try
+        {
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.CREDIT;
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.CREDIT;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(submittedCustomer, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+
+            var jsonNode = sessionResponse.TransactionJson;
+
+            string[] errorKeywords = ["INVALID", "ERROR", "FAILED", "DECLINED", "error", "invalid", "failed", "declined"];
+
+
+            if (sessionResponse is null)
+            {
+                Show = false;
+                StateHasChanged(); // optional
+                error = "Session Response is null";
+                sessionResponse = new SessionTransJson();
+                sessionResponse.JsonTransactionStateValues = TransactionStateValues.Error;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            
+            if (sessionResponse is not null && sessionResponse.TransactionJson is not null)
+            {
+                basicErrorInfos = JsonErrorExtractor.ExtractErrorObjects(sessionResponse.TransactionJson.ToString());
+
+                containsError = basicErrorInfos.Any(e =>
+                    !string.IsNullOrWhiteSpace(e.Status) &&
+                    errorKeywords.Any(keyword =>
+                        e.Status.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (sessionResponse != null && containsError)
+            {
+                Show = false;
+                StateHasChanged(); // optional
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else
+            {
+                sessionTransactions.AddTrans(sessionResponse!);
+                Navigation.NavigateTo("/processfollowon");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+}

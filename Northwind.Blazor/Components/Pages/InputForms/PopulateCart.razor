@@ -1,0 +1,21 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/populatecart"
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+
+<h3>PopulateCart</h3>
+
+@code {
+
+    public void CreateRandomCart()
+    { 
+        //GeneralUtilities.PopulateCart();
+    }
+
+}

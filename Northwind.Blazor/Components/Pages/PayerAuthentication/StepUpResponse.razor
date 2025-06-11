@@ -1,0 +1,387 @@
+﻿@page "/stepup-complete"
+@rendermode InteractiveServer
+
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject ISessionTransactions sessionTransactions
+@inject ICustomersScoped customersScoped
+
+
+<h3>Step Up Auth Completed</h3>
+
+
+<div class="container">
+    <div class="row row-cols-1 row-cols-md-2 gy-4">
+        <div class="col-sm-6 mb-3 mb-sm-0">
+            <div class="card">
+                <div class="card-title">
+                    <h3>Response Data:</h3>
+                </div>
+                <hr class="my-4">
+                <div class="card-body">
+                    @if (UriTransactionId != null)
+                    {
+                        <h3>Check Enrollment Complete - Validation Transaction ID:</h3>
+                        <ul>
+                            <li>Transaction ID: @UriTransactionId</li>
+                        </ul>
+                        <ul>
+                            <li>GUID: @UriGuid</li>
+                        </ul>
+                    }
+                    else
+                    {
+                        <p>No data available.</p>
+                    }
+                </div>
+                <div class="card-footer">
+                    @if (UriTransactionId != null)
+                    {
+                        <hr class="my-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div>
+                                    <button class="btn btn-primary" @onclick="PaValidate">Payer Auth Validate</button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div>
+                                    <button class="btn btn-primary" @onclick="PaValidateWithAuth">Payer Auth Validate and Authorization</button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@code {
+    [Parameter] public string? UriTransactionId { get; set; }
+    [Parameter] public string? UriGuid { get; set; }
+    private string error = string.Empty;
+    private string customerObjectState = string.Empty;
+    private string sessionDataString = string.Empty;
+
+    Guid id = Guid.Empty;
+    DateTime createdAt = DateTime.MinValue;
+
+    private bool containsError = false;
+
+    private AftValidateDto aftValidateDto = new AftValidateDto();
+    private B2cCustomer b2CCustomer = new B2cCustomer();
+    private SessionStateDto sessionStateDto = new SessionStateDto();
+
+    private static List<BasicErrorInfo> basicErrorInfos = new List<BasicErrorInfo>();
+
+    SessionTransJson sessionTransJson = new SessionTransJson();
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(Navigation.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+
+        if (query.TryGetValue("transactionId", out var id) && query.TryGetValue("guid", out var guid))
+        {
+            // GET b2ustomer data from customersScoped
+            UriTransactionId = id.ToString();
+            UriGuid = guid.ToString();
+
+            if (sessionTransactions.Transactions.Any())
+            {
+                sessionTransJson = sessionTransactions.Transactions!.LastOrDefault()!;
+
+                StateHasChanged(); // ⬅️ Triggers re-render so the form appears.
+                return;
+            }
+            else
+            {
+                if (sessionTransactions.Transactions == null || !sessionTransactions.Transactions.Any())
+                {
+                    sessionTransactions.AddTrans(new SessionTransJson());
+                    sessionTransJson = sessionTransactions.Transactions!.LastOrDefault()!;
+                }
+            }
+
+            if (customersScoped.CustData.Any())
+            {
+                b2CCustomer = customersScoped.CustData!.LastOrDefault()!;
+
+                StateHasChanged(); // ⬅️ Triggers re-render so the form appears.
+                return;
+            }
+            else
+            {
+                if (customersScoped.CustData == null || !customersScoped.CustData.Any())
+                {
+                    customerObjectState = "no customer object found";
+                }
+            }
+
+            aftValidateDto = new AftValidateDto();
+            aftValidateDto.ConsumerAuthenticationInformation = new ConsumerAuthenticationInformation
+            {
+                AuthenticationTransactionId = UriTransactionId,
+            };
+            aftValidateDto.PaymentInformation = new PaymentInformation
+            {
+                Card = new FullCard
+                {
+                    Type = "001",
+                },
+            };
+
+        }
+        else
+        {
+            UriTransactionId = "TransactionId not found in URL query.";
+            error = "Payer Authentication TransactionId not found in URL query.";
+            SessionTransJson sessionTransJson = new SessionTransJson();
+            sessionTransJson = new SessionTransJson();
+            sessionTransJson.JsonTransactionStateValues = TransactionStateValues.Error;
+            sessionTransJson.error = error;
+            sessionTransactions.AddTrans(sessionTransJson);
+            Navigation.NavigateTo("/errorhandler");
+        }
+
+
+        StateHasChanged(); // optional
+    }
+
+    private async Task PaValidate()
+    {
+        try
+        {
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.PA_VALIDATE;
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.PA_VALIDATE;
+
+            //TODO : Add the customer to PA Validate Object
+            //customersScoped.AddCustData(b2CCustomer);
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(aftValidateDto, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString,
+                sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            var jsonNode = sessionResponse.TransactionJson;
+
+            string[] errorKeywords = ["INVALID", "ERROR", "FAILED", "DECLINED", "error", "invalid", "failed", "declined"];
+
+
+            if (sessionResponse is null)
+            {
+                StateHasChanged(); // optional
+                error = "Session Response is null";
+                sessionResponse = new SessionTransJson();
+                sessionResponse.JsonTransactionStateValues = TransactionStateValues.Error;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+
+            if (sessionResponse is not null && sessionResponse.TransactionJson is not null)
+            {
+                basicErrorInfos = JsonErrorExtractor.ExtractErrorObjects(sessionResponse.TransactionJson.ToString());
+
+                containsError = basicErrorInfos.Any(e =>
+                    !string.IsNullOrWhiteSpace(e.Status) &&
+                    errorKeywords.Any(keyword =>
+                        e.Status.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (sessionResponse != null && containsError)
+            {
+                StateHasChanged(); // optional
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else
+            {
+                sessionTransactions.AddTrans(sessionResponse!);
+                Navigation.NavigateTo("/processfollowon");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PaValidateWithAuth()
+    {
+        try
+        {
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.SESSION_STATE_RETRIEVE;
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            var responseJsonOptions = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, PropertyNameCaseInsensitive = true };
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (UriGuid is not null)
+            {
+
+                var guidOptions = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+
+                string guidInput = JsonSerializer.Serialize(UriGuid, guidOptions);
+
+                SessionTransJson sessionCustomerRetrieve = await CallMinAPIs.SubmitForFollowOn(guidInput,
+                    sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+                if (sessionCustomerRetrieve is not null && sessionCustomerRetrieve.TransactionJson is not null)
+                {
+                    b2CCustomer = new();
+
+                    JsonNode? jsonResponseNode = sessionCustomerRetrieve.TransactionJson;
+
+                    SessionStateDto? dto = null;
+
+                    if (jsonResponseNode is JsonObject obj)
+                    {
+                        // Try to safely extract each field
+                        bool hasId = obj.TryGetPropertyValue("id", out JsonNode? idNode)
+                                     && Guid.TryParse(idNode?.ToString(), out Guid id);
+
+                        bool hasSerializedData = obj.TryGetPropertyValue("serializedData", out JsonNode? dataNode)
+                                                 && !string.IsNullOrWhiteSpace(dataNode?.ToString());
+
+                        bool hasCreatedAt = obj.TryGetPropertyValue("createdAt", out JsonNode? dateNode)
+                                            && DateTime.TryParse(dateNode?.ToString(), out DateTime createdAt);
+
+                        if (hasId && hasSerializedData && hasCreatedAt)
+                        {
+                            id = Guid.Empty;
+                            createdAt = DateTime.MinValue;
+                            dto = new SessionStateDto
+                            {
+                                Id = id,
+                                SerializedData = dataNode!.ToString(),
+                                CreatedAt = createdAt
+                            };
+                            Console.WriteLine($"DTO Serialized Data: {dto.SerializedData}");
+                            b2CCustomer = JsonSerializer.Deserialize<B2cCustomer>(dto.SerializedData, responseJsonOptions)!;
+                        }
+                    }
+                }
+                else
+                {
+                    ErrorObject errorObject = new ErrorObject();
+                    errorObject.Error = "ERROR";
+                    errorObject.Message = "no response from server";
+                    string jsonErrorString = JsonSerializer.Serialize(errorObject, options);
+                    SessionTransJson sessionTransJson = new SessionTransJson();
+                    JsonObject jsonObject = JsonNode.Parse(jsonErrorString)?.AsObject()!;
+                    sessionTransJson.TransactionJson = jsonObject;
+                    sessionTransactions.AddTrans(sessionTransJson);
+                    Navigation.NavigateTo("/errorhandler");
+                }
+            }
+
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.FLEX_PA_SETUP;
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.FLEX_AFT_VALIDATE_AUTH;
+
+            Guid guid = new Guid();
+            Console.WriteLine($"GUID = {guid}");
+
+            aftValidateDto = new();
+            aftValidateDto.ClientReferenceInformation = new();
+            aftValidateDto.OrderInformation = new();
+            aftValidateDto.OrderInformation.BillTo = new();
+            aftValidateDto.OrderInformation.AmountDetails = new();
+            aftValidateDto.PaymentInformation = new();
+            aftValidateDto.PaymentInformation.Card = new();
+            aftValidateDto.TokenInformation = new();
+            aftValidateDto.ProcessingInformation = new();
+            aftValidateDto.ProcessingInformation.ActionList = Array.Empty<string>();
+            aftValidateDto.ConsumerAuthenticationInformation = new();
+
+            aftValidateDto.ClientReferenceInformation.Code = guid.ToString();
+
+            aftValidateDto.ConsumerAuthenticationInformation.AuthenticationTransactionId = UriTransactionId;
+
+            aftValidateDto.ProcessingInformation.ActionList = new string[] { "VALIDATE_CONSUMER_AUTHENTICATION", "TOKEN_CREATE" };
+            aftValidateDto.ProcessingInformation.ActionTokenTypes = new string[] { "paymentInstrument, instrumentIdentifier" };
+
+            aftValidateDto.OrderInformation.AmountDetails.TotalAmount = b2CCustomer.TotalAmount.ToString() ?? "0.00";
+            aftValidateDto.OrderInformation.AmountDetails.Currency = b2CCustomer.Currency ?? "USD";
+
+            aftValidateDto.OrderInformation.BillTo.FirstName = b2CCustomer.FirstName ?? "null";
+            aftValidateDto.OrderInformation.BillTo.LastName = b2CCustomer.LastName ?? "null";
+            aftValidateDto.OrderInformation.BillTo.Address1 = b2CCustomer.Address1 ?? "null";
+            aftValidateDto.OrderInformation.BillTo.Locality = b2CCustomer.City ?? "null";
+            aftValidateDto.OrderInformation.BillTo.AdministrativeArea = b2CCustomer.AdministrativeArea ?? "null";
+            aftValidateDto.OrderInformation.BillTo.PostalCode = b2CCustomer.PostalCode ?? "null";
+            aftValidateDto.OrderInformation.BillTo.Country = b2CCustomer.Country ?? "null";
+            aftValidateDto.OrderInformation.BillTo.PhoneNumber = b2CCustomer.Phone ?? "null";
+            aftValidateDto.OrderInformation.BillTo.Email = b2CCustomer.Email ?? "null";
+
+            aftValidateDto.TokenInformation.TransientTokenJwt = b2CCustomer.TransientTokenJwt;
+
+
+            // Serialize the object into a string for submission
+
+            string jsonString = JsonSerializer.Serialize(aftValidateDto, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString,
+                sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            var jsonNode = sessionResponse.TransactionJson;
+
+            string[] errorKeywords = ["INVALID", "ERROR", "FAILED", "DECLINED", "error", "invalid", "failed", "declined"];
+
+
+            if (sessionResponse is null)
+            {
+                StateHasChanged(); // optional
+                error = "Session Response is null";
+                sessionResponse = new SessionTransJson();
+                sessionResponse.JsonTransactionStateValues = TransactionStateValues.Error;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+
+            if (sessionResponse is not null && sessionResponse.TransactionJson is not null)
+            {
+                basicErrorInfos = JsonErrorExtractor.ExtractErrorObjects(sessionResponse.TransactionJson.ToString());
+
+                containsError = basicErrorInfos.Any(e =>
+                    !string.IsNullOrWhiteSpace(e.Status) &&
+                    errorKeywords.Any(keyword =>
+                        e.Status.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (sessionResponse != null && containsError)
+            {
+                StateHasChanged(); // optional
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else
+            {
+                sessionTransactions.AddTrans(sessionResponse!);
+                Navigation.NavigateTo("/processfollowon");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+}

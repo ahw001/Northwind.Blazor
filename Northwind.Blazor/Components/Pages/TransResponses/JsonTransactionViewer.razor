@@ -1,0 +1,28 @@
+﻿@rendermode InteractiveServer
+@page "/transviewer"
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject ICustomersScoped custTransFormDto
+@inject NavigationManager Navigation
+
+
+<h3>Json Transaction Viewer</h3>
+
+    @if (transactionJson is not null)
+    {
+        @foreach (var transaction in transactionJson.Transactions)
+        {
+            <div class="border">
+                <textarea name="transactionResults" rows="20" cols="100" maxlength="4000" wrap="hard" border-color="black">@transaction.ToString()</textarea>
+            </div>
+        }
+    }
+
+
+@code {
+
+    private ITransactionJson _transactionJson = new TransactionJson();
+
+}

@@ -1,0 +1,217 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/pacheckenroll"
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>@transactionPageTitle</h1>
+
+@if (showResultCard)
+{
+    <FormSection Title="Customer Information" HelpText="">
+        <div class="container">
+            <div class="row align-items-start">
+                <button class="btn btn-primary" type="button" @onclick="SubmitForFollowOn">
+                    SUBMIT FOR CHECK ENROLLMENT
+                </button>
+                <div class="col d-flex">
+                    <div class="col-8 m-1">
+                        <div class="card">
+                            <div class="card-body">
+                                <h3>Response Data:</h3>
+                                <div class="card-title">
+                                </div>
+                                <div class="card-body">
+                                    @if (propertyValues != null && propertyValues.Count > 0)
+                                    {
+                                        <ul>
+                                            @foreach (var propertyValue in propertyValues)
+                                            {
+                                                <li>@propertyValue</li>
+                                            }
+                                        </ul>
+                                    }
+                                    else
+                                    {
+                                        <p>@error</p>
+                                    }
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <div>
+                                    <button class="btn btn-primary" type="button" @onclick="SubmitForFollowOn">
+                                        SUBMIT FOR CHECK ENROLLMENT
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </FormSection>
+}
+
+@code {
+
+    private string transactionPageTitle = string.Empty;
+
+    private string error = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private CcTransactionTypes currentTransaction;
+    private JwtPayload tokenPayload = new JwtPayload();
+    private B2cCustomer b2CCustomer = new();
+    private ConsumerAuthenticationInformation consumerAuthenticationInformation = new();
+    private CheckEnrollDto checkEnrollDto = new CheckEnrollDto();
+
+    private bool showResultCard = false;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+    private List<string> propertyValues = new List<string>();
+
+    private JsonNode? _transactionJson = null;
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        currentTransaction = CcTransactionTypes.PA_ENROLL;
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+        transactionPageTitle = sessionTransJson.CurrentTransactionType.ToString() + ": Follow on Transaction";
+
+        if (sessionTransJson is not null && sessionTransJson.Customer is not null
+         && sessionTransJson.Customer.AmountDetails is not null)
+        {
+            showResultCard = true;
+            
+            checkEnrollDto.BuyerInformation = new();
+            checkEnrollDto.OrderInformation = new();
+            checkEnrollDto.OrderInformation.BillTo = new();
+            checkEnrollDto.OrderInformation.AmountDetails = new();
+            checkEnrollDto.ConsumerAuthenticationInformation = new();
+            checkEnrollDto.TokenInformation = new TokenInformation();
+
+            if (sessionTransJson is not null && sessionTransJson.TransientToken is not null 
+                && sessionTransJson.Customer is not null)
+            {
+                b2CCustomer = sessionTransJson.Customer!;
+
+                checkEnrollDto.BuyerInformation.MobilePhone = b2CCustomer.Phone ?? null;
+                checkEnrollDto.OrderInformation.AmountDetails.Currency = b2CCustomer.Currency;
+                checkEnrollDto.OrderInformation.AmountDetails.TotalAmount = b2CCustomer.TotalAmount.HasValue ? b2CCustomer.TotalAmount.Value.ToString("0.00") : "0.00";
+                checkEnrollDto.OrderInformation.BillTo!.Address1 = b2CCustomer.Address1 ?? null;
+                checkEnrollDto.OrderInformation.BillTo!.AdministrativeArea = b2CCustomer.AdministrativeArea ?? null;
+                checkEnrollDto.OrderInformation.BillTo!.Locality = b2CCustomer.City ?? null;
+                checkEnrollDto.OrderInformation.BillTo!.Country = b2CCustomer.Country ?? null;
+                checkEnrollDto.OrderInformation.BillTo!.PostalCode = b2CCustomer.PostalCode ?? null;
+                checkEnrollDto.OrderInformation.BillTo!.FirstName = b2CCustomer.FirstName ?? null;
+                checkEnrollDto.OrderInformation.BillTo!.LastName = b2CCustomer.LastName ?? null;
+                checkEnrollDto.OrderInformation.BillTo!.Email = b2CCustomer.Email ?? null;
+                checkEnrollDto.TokenInformation.TransientToken = sessionTransJson!.TransientToken!;
+                
+
+                if (sessionTransJson.TransactionJson is not null &&
+                    sessionTransJson.TransactionJson["consumerAuthenticationInformation"] is JsonNode consumerAuthInfoNode)
+                {
+                    // Now you have the ConsumerAuthenticationInformation node
+                    // You can work with it here
+
+                    Console.WriteLine(consumerAuthInfoNode.ToJsonString());
+                    string jsonString = consumerAuthInfoNode.ToJsonString();
+
+                    consumerAuthenticationInformation = JsonSerializer.Deserialize<ConsumerAuthenticationInformation>(jsonString)!;
+                    
+                    checkEnrollDto.ConsumerAuthenticationInformation.ReferenceId = consumerAuthenticationInformation.ReferenceId;
+                    checkEnrollDto.ConsumerAuthenticationInformation.TransactionMode = "eCommerce";
+                    checkEnrollDto.ConsumerAuthenticationInformation.DeviceChannel = "BROWSER";
+
+                }
+                else
+                {
+                    Console.WriteLine("ConsumerAuthenticationInformation not found or TransactionJson is null.");
+                }
+
+                propertyValues = PropertiesProcessor.GetProperties(checkEnrollDto!);
+
+            }
+            else
+            {
+                error = "No data found.";
+            }
+        }
+
+        base.OnInitialized();
+    }
+
+    private async Task SubmitForFollowOn()
+    {
+        try
+        {
+
+            currentTransaction = CcTransactionTypes.PA_ENROLL;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(checkEnrollDto, options);
+
+            // POST FOR PA ENROLL TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, currentTransaction);
+
+            // POST FOR PA ENROLL TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Error)
+            {
+
+                var jsonNode = sessionResponse.TransactionJson;
+
+                string statusNode = (string)jsonNode!["status"]!;
+
+                error = "Error: " + statusNode;
+                sessionResponse = new();
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.TransactionJson;
+
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/paprocessor");
+            }
+            else
+            {
+                error = "Error: " + "No or bad response from server";
+                sessionResponse = new();
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            showResultCard = true;
+            //showFieldCard = false;
+        }
+    }
+}
+
+

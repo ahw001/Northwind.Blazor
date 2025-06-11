@@ -1,0 +1,25 @@
+﻿.flex-microform {
+    border: 5px;
+    height: 20px;
+    background: #ffffff;
+    -webkit-transition: background 200ms;
+    transition: background 200ms;
+}
+
+
+/* different styling for a specifc container */
+.flex-microform-focused {
+    background: lightyellow;
+}
+
+.flex-microform-valid {
+    background: green;
+}
+
+.flex-microform-valid.flex-microform-focused {
+    background: lightgreen;
+}
+
+.flex-microform-autocomplete {
+    background: #faffbd;
+}

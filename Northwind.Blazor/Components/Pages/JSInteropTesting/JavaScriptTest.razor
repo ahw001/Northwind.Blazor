@@ -1,0 +1,165 @@
+﻿@page "/js-test"
+@rendermode InteractiveServer
+
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject ISessionTransactions sessionTransactions
+
+<script src="Components/Pages/JSInteropTesting/JavaScriptTest.razor.js"></script>
+
+<PageTitle>Java Script Interop Test</PageTitle>
+
+<h1>cybersource Test Harness</h1>
+<br />
+
+<script>
+    function getTheTime() {
+        var now = new Date();
+        var theHr = now.getHours();
+        var theMin = now.getMinutes();
+        alert("FROM JS File - Current Time: " + theHr + ":" + theMin);
+    }
+</script>
+
+<script>
+    window.displayTickerAlert1 = (symbol, price) => {
+        alert(`${symbol}: $${price}!`);
+    };
+</script>
+
+<script>
+    window.sayHello2 = (dotNetHelper, name) => {
+        return dotNetHelper.invokeMethodAsync('GetHelloMessage', name);
+    };
+</script>
+
+<br />
+
+<button class="btn btn-danger" onclick="getTheTime()">Get Time from Script</button>
+<br />
+<br />
+
+<button class="btn btn-secondary" onclick="callInteriorTest()">Call .NET Method from JavaScript</button>
+<br />
+<br />
+
+
+<button class="btn btn-primary" onclick="getTheTimeFromFile()">Get Time from File</button>
+
+<br />
+<br />
+
+<div>
+    <button type="button" class="btn btn-warning" @onclick="ShowOffCanvas">Show OffCanvas Sidebar</button>
+</div>
+<br />
+
+<p>
+    <button @onclick="SetStock">Set Stock</button>
+</p>
+
+@if (stockSymbol is not null)
+{
+    <p>@stockSymbol price: @price.ToString("c")</p>
+}
+
+<div class="offcanvas offcanvas-start" tabindex="-1" id="sidebarOffcanvas" aria-labelledby="sidebarLabel">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="sidebarLabel">Offcanvas Sidebar</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <!-- Sidebar content here -->
+        <p>This is your sidebar content.</p>
+        <br />
+        <a href="checkout">Checkout</a>
+
+        <div class="dropdown mt-3">
+            <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                Dropdown button
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="checkout">Checkout</a></li>
+                <li><a class="dropdown-item" href="#">Another action</a></li>
+                <li><a class="dropdown-item" href="#">Something else here</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+
+
+
+@code {
+
+    private string? stockSymbol;
+    private decimal price;
+    private string? captureContextJwt;
+    private string? error = null;
+    private string? name;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+
+
+    /*
+    protected override void OnParametersSet()
+    {
+
+    }
+    */
+
+    
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _sessionTransactions = sessionTransactions;
+
+            if (_sessionTransactions.Transactions.Any())
+            {
+                sessionTransJson = _sessionTransactions.Transactions!.LastOrDefault()!;
+                captureContextJwt = sessionTransJson?.TransactionJson?.ToString() ?? "No Data";
+                Console.WriteLine($"captureContextJwt = {captureContextJwt}");
+            }
+            else
+            {
+                error = "No Data";
+            }
+            var jwt = captureContextJwt;
+            Console.WriteLine($"In OnAfterRenderAsync");
+            //await JSRuntime.InvokeVoidAsync("executeAcceptScript", jwt);
+        }
+    }
+    
+    [JSInvokable]
+    public string GetHelloMessage() => $"Hello, {name}!";
+
+
+    private async Task SetStock()
+    {
+        stockSymbol =
+            $"{(char)('A' + Random.Shared.Next(0, 26))}{(char)('A' + Random.Shared.Next(0, 26))}";
+        price = Random.Shared.Next(1, 101);
+        await JSRuntime.InvokeVoidAsync("displayTickerAlert1", stockSymbol, price);
+    }
+
+    public async void ShowOffCanvas()
+    {
+
+        await JSRuntime.InvokeVoidAsync(
+            "showOffcanvasSidebar");
+        StateHasChanged();
+
+    }
+
+    [JSInvokable]
+    public static Task InteriorJSTestMethod()
+    {
+        Console.WriteLine("InteriorMethod method invoked.");
+        return Task.CompletedTask;
+    }
+}
+
+

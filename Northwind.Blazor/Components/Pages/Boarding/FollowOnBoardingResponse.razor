@@ -1,0 +1,115 @@
+﻿@page "/processboardingresponse"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IHttpClientFactory httpClientFactory
+@inject NavigationManager Navigation
+@inject ISessionTransactions sessionTransactions
+
+<h3>Merchant Boarding Response</h3>
+
+<div class="container">
+    <div class="row row-cols-1 row-cols-md-2 gy-4">
+        @if (showMerchantBoarding)
+        {
+            <div class="col-sm-6 mb-3 mb-sm-0">
+                <div class="card">
+                    <div class="card-title">
+                        <h3>Merchant Boarding Response</h3>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="merchantboarding">Board a New Merchant</a></li>
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    <div class="card-body">
+                        @if (propertyValues != null && propertyValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in propertyValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                    <div class="card-footer">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="merchantboarding">Board a New Merchant</a></li>
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+
+    private string transactionPageTitle = string.Empty;
+    private string error = string.Empty;
+
+    private bool showMerchantBoarding = true;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private CcTransactionTypes currentTransaction;
+
+    private BoardingResponseRoot? boardingResponseRoot = new BoardingResponseRoot();
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+
+    private List<string> propertyValues = new List<string>();
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+        transactionPageTitle = sessionTransJson.CurrentTransactionType.ToString() + ": Follow on Transaction";
+
+        if (sessionTransJson.TransactionJson is not null)
+        {
+            try
+            {
+                boardingResponseRoot = new();
+
+                currentTransaction = (CcTransactionTypes)sessionTransJson.CurrentTransactionType!;
+
+                boardingResponseRoot = JsonSerializer.Deserialize<BoardingResponseRoot>(sessionTransJson.TransactionJson)!;
+
+                propertyValues = PropertiesProcessor.GetProperties(boardingResponseRoot);
+
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+
+            }
+
+        }
+        StateHasChanged();
+    }
+}

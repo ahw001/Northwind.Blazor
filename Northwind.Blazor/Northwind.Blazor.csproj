@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  
+  <PropertyGroup>
+	  <AssemblyName>Northwind.Blazor</AssemblyName>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Content Remove="wwwroot\favicon.ico" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Remove="Components\Pages\PageUtils\JavaScriptTest.razor.js" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="Components\Pages\JSInteropTesting\JavaScriptTest.razor.js" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Include="wwwroot\favicon.ico" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.QuickGrid" Version="9.0.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Update="Components\Pages\AftProcessing\AftProcessor.razor">
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Update="Components\Pages\CloudPos\CloudPosCaputre.razor">
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Update="Components\Pages\CloudPos\CloudPosTokenReturn.razor">
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Update="Resource\localhost.pfx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

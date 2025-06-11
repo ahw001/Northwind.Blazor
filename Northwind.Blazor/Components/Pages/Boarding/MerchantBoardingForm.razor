@@ -1,0 +1,466 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/merchantboarding"
+
+@inject NavigationManager Navigation
+@inject ISessionTransactions sessionTransactions
+
+
+
+<h2>Merchant Boarding Form</h2>
+
+<FormSection Title="Use Defaults" HelpText="">
+    <div class="row">
+        <div class="col d-flex">
+            <div class="col-8">
+                <label class="form-check-label me-2" for="useDefaults"><b>Use Defaults:</b></label>
+            </div>
+            <div class="col-3 border d-flex justify-content-center align-items-center">
+                <input type="checkbox" @bind="IsChecked" @onclick="PopulateForm" class="form-check-input" id="useDefaults" />
+            </div>
+        </div>
+        <div class="col d-flex">
+            @if (IsChecked)
+            {
+                <button class="w-100 btn btn-primary btn-lg" @onclick="HandleValidSubmit">Submit for Boarding</button>
+            }
+        </div>
+        <div class="col d-flex">
+            @if (error is null)
+            {
+                <div class="col d-flex">
+                    <div class="col-8">
+                        <label class="form-check-label me-2" for="useDefaults"><b>Use Adam Info:</b></label>
+                    </div>
+                    <div class="col-3 border d-flex justify-content-center align-items-center">
+                        <input type="checkbox" @bind="IsAdamChecked" @onclick="PopulateFormWithAdamInfo" class="form-check-input" id="useDefaults" />
+                    </div>
+                </div>
+            }
+            @if (error is not null)
+            {
+                <div class="col-6">
+                    <strong class="alert-danger">@error</strong>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Follow on Actions
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="merchantboarding">Create New Merchant</a></li>
+                        <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                        <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                    </ul>
+                </div>
+            }
+        </div>
+    </div>
+</FormSection>
+
+<FormSection>
+    <h5 class="mb-1">Choose Merchant Type</h5>
+    <div class="row">
+        <div class="col d-flex">
+            <div class="col-4 border border-1">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" @bind="organizationMerchant" id="organizationMerchant" value="option1">
+                    <label class="form-check-label" for="organizationMerchant">Organization Level Merchant</label>
+                </div>
+            </div>
+            <div class="col-4 border border-1">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" @bind="strutualMerchant" id="strutualMerchant" value="option2">
+                    <label class="form-check-label" for="strutualMerchant">Structual Level Merchant</label>
+                </div>
+            </div>
+            <div class="col-4 border border-1">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" @bind="transactingMerchant" id=" transactingMerchant" value="option3">
+                    <label class="form-check-label" for="transactingMerchant">Transacting Merchant</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</FormSection>
+
+<FormSection Title="Select Products" HelpText="">
+    <h5 class="mb-1">Select Products to Enable</h5>
+    <div class="row">
+        <div class="col d-flex">
+            <div class="col-6 border border-1">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" @bind="cardProcessing" role="switch" id="cardProcessing">
+                    <label class="form-check-label" for="cardProcessing">Enable Card Processing</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" @bind="virtualTerminal" role="switch" id="virtualTerminal">
+                    <label class="form-check-label" for="virtualTerminal">Enable Virtual Terminal</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" @bind="unifiedCheckout" role="switch" id="unifiedCheckout">
+                    <label class="form-check-label" for="unifiedCheckout">Enable Unified Checkout</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" @bind="tokenManagementService" role="switch" id="tokenManagementService">
+                    <label class="form-check-label" for="tokenManagementService">Enable Token Management</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" @bind="payerAuthentication" role="switch" id="payerAuthentication">
+                    <label class="form-check-label" for="payerAuthentication">Enable Payer Authentication</label>
+                </div>
+            </div>
+        </div>
+        <div class="col d-flex">
+            <div class="col-6 border border-1">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" @bind="payByLink" role="switch" id="payByLink">
+                    <label class="form-check-label" for="payByLink">Enable Pay By Link</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" @bind="customerInvoicing" role="switch" id="customerInvoicing">
+                    <label class="form-check-label" for="customerInvoicing">Enable Customer Invoicing</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" @bind="cybsReadyTerminal" role="switch" id="cybsReadyTerminal">
+                    <label class="form-check-label" for="cybsReadyTerminal">Enable Cybs Ready Terminal</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" @bind="tax" role="switch" id="tax">
+                    <label class="form-check-label" for="tax">Enable Tax</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" @bind="decisionManager" role="switch" id="decisionManager">
+                    <label class="form-check-label" for="decisionManager">Enable Decision Manager</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</FormSection>
+
+<EditForm Model="@merchantModel" OnValidSubmit="@HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <FormSection Title="Merchant Information" HelpText="">
+        <div class="row align-items-start">
+            <div class="col d-flex">
+                <div class="col-5 m-1">
+                    <FormSection Title="Merchant Information" HelpText="">
+                        <h5 class="mb-1">Business Contact Information</h5>
+                        <div>
+                            <label for="organizationId">Parent Organization ID</label>
+                            <InputText id="organizationId" @bind-Value="merchantModel.ParentOrganizationId" class="form-control" />
+                        </div>
+                        <div>
+                            <label for="organizationId">Transacting ID</label>
+                            <InputText id="organizationId" @bind-Value="merchantModel.TransactingOrganizationId" class="form-control" />
+                        </div>
+                        <div>
+                            <label for="status">Status</label>
+                            <InputText id="status" @bind-Value="merchantModel.Status" class="form-control" />
+                        </div>
+                        <div>
+                            <label for="type">Type</label>
+                            <InputText id="type" @bind-Value="merchantModel.Type" class="form-control" />
+                        </div>
+                        <div>
+                            <label for="configurable">Configurable</label>
+                            <InputText id="configurable" @bind-Value="merchantModel.Configurable" class="form-control" />
+                        </div>
+                        <div>
+                            <label for="country">Country</label>
+                            <InputText id="country" @bind-Value="merchantModel.Country" class="form-control" />
+                        </div>
+                        <div>
+                            <label for="address1">Address 1</label>
+                            <InputText id="address1" @bind-Value="merchantModel.Address1" class="form-control" />
+                        </div>
+                        <div>
+                            <label for="postalCode">Postal Code</label>
+                            <InputText id="postalCode" @bind-Value="merchantModel.PostalCode" class="form-control" />
+                        </div>
+                        <div>
+                            <label for="administrativeArea">Administrative Area</label>
+                            <InputText id="administrativeArea" @bind-Value="merchantModel.AdministrativeArea" class="form-control" />
+                        </div>
+                        <div>
+                            <label for="locality">Locality</label>
+                            <InputText id="locality" @bind-Value="merchantModel.Locality" class="form-control" />
+                        </div>
+                    </FormSection>
+                    <FormSection Title="Business Contact Information" HelpText="">
+                        <h5 class="mb-1">Business Contact Information</h5>
+                        <div>
+                            <label for="businessContactFirstName">Business Contact First Name</label>
+                            <InputText id="businessContactFirstName" @bind-Value="merchantModel.BusinessContactFirstName" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="businessContactLastName">Business Contact Last Name</label>
+                            <InputText id="businessContactLastName" @bind-Value="merchantModel.BusinessContactLastName" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="businessContactPhoneNumber">Business Contact Phone Number</label>
+                            <InputText id="businessContactPhoneNumber" @bind-Value="merchantModel.BusinessContactPhoneNumber" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="businessContactEmail">Business Contact Email</label>
+                            <InputText id="businessContactEmail" @bind-Value="merchantModel.BusinessContactEmail" class="form-control" />
+                        </div>
+                    </FormSection>
+                </div>
+                <div class="col-5 m-1">
+                    <FormSection Title="Technical Contact Information" HelpText="">
+                        <h5 class="mb-1">Technical Contact Information</h5>
+                        <div>
+                            <label for="technicalContactFirstName">Technical Contact First Name</label>
+                            <InputText id="technicalContactFirstName" @bind-Value="merchantModel.TechnicalContactFirstName" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="technicalContactLastName">Technical Contact Last Name</label>
+                            <InputText id="technicalContactLastName" @bind-Value="merchantModel.TechnicalContactLastName" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="technicalContactPhoneNumber">Technical Contact Phone Number</label>
+                            <InputText id="technicalContactPhoneNumber" @bind-Value="merchantModel.TechnicalContactPhoneNumber" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="technicalContactEmail">Technical Contact Email</label>
+                            <InputText id="technicalContactEmail" @bind-Value="merchantModel.TechnicalContactEmail" class="form-control" />
+                        </div>
+                    </FormSection>
+                    <FormSection Title="Emergency Contact Information" HelpText="">
+                        <h5 class="mb-1">Emergency Contact Information</h5>
+                        <div>
+                            <label for="emergencyContactFirstName">Emergency Contact First Name</label>
+                            <InputText id="emergencyContactFirstName" @bind-Value="merchantModel.EmergencyContactFirstName" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="emergencyContactLastName">Emergency Contact Last Name</label>
+                            <InputText id="emergencyContactLastName" @bind-Value="merchantModel.EmergencyContactLastName" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="emergencyContactPhoneNumber">Emergency Contact Phone Number</label>
+                            <InputText id="emergencyContactPhoneNumber" @bind-Value="merchantModel.EmergencyContactPhoneNumber" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="emergencyContactEmail">Emergency Contact Email</label>
+                            <InputText id="emergencyContactEmail" @bind-Value="merchantModel.EmergencyContactEmail" class="form-control" />
+                        </div>
+                    </FormSection>
+                    <FormSection Title="Business Information" HelpText="">
+                        <h5 class="mb-1">Business Information</h5>
+                        <div>
+                            <label for="name">Name</label>
+                            <InputText id="name" @bind-Value="merchantModel.Name" class="form-control" />
+                        </div>
+                        <div>
+                            <label for="websiteUrl">Website URL</label>
+                            <InputText id="websiteUrl" @bind-Value="merchantModel.WebsiteUrl" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="businessInformationPhoneNumber">Business Information Phone Number</label>
+                            <InputText id="businessInformationPhoneNumber" @bind-Value="merchantModel.BusinessInformationPhoneNumber" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="businessInformationTimeZone">Business Information Time Zone</label>
+                            <InputText id="businessInformationTimeZone" @bind-Value="merchantModel.BusinessInformationTimeZone" class="form-control" />
+                        </div>
+
+                        <div>
+                            <label for="merchantCategoryCode">Merchant Category Code</label>
+                            <InputNumber id="merchantCategoryCode" @bind-Value="merchantModel.MerchantCategoryCode" class="form-control" />
+                        </div>
+                    </FormSection>
+                </div>
+            </div>
+        </div>
+    </FormSection>
+
+    <hr class="my-4">
+
+    <button type="submit" class="btn btn-primary">Submit</button>
+
+    <hr class="my-4">
+
+</EditForm>
+
+@code {
+
+    private bool IsChecked { get; set; } = false;
+    private bool IsAdamChecked { get; set; } = false;
+    private bool virtualTerminal = false;
+    private bool unifiedCheckout = false;
+    private bool tokenManagementService = false;
+    private bool payerAuthentication = false;
+    private bool payByLink = false;
+    private bool customerInvoicing = false;
+    private bool tax = false;
+    private bool decisionManager = false;
+    private bool organizationMerchant = false;
+    private bool strutualMerchant = false;
+    private bool transactingMerchant = false;
+    private bool cardProcessing = false;
+    private bool cybsReadyTerminal = false;
+
+    private string? error;
+
+    private SessionTransJson sessionTransJson = new();
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private JsonNode? _transactionJson = null;
+
+    private MerchantModelDto merchantModel = new MerchantModelDto();
+
+    private async void HandleValidSubmit()
+    {
+        try
+        {
+            if (organizationMerchant)
+            {
+                sessionTransJson.OriginalTransactionType = CcTransactionTypes.MERCHANT_BOARDING_CREATE;
+                sessionTransJson.CurrentTransactionType = CcTransactionTypes.MERCHANT_BOARDING_CREATE;
+            }
+            else if (!organizationMerchant && transactingMerchant)
+            {
+                sessionTransJson.OriginalTransactionType = CcTransactionTypes.TRANSACTION_BOARDING_CREATE;
+                sessionTransJson.CurrentTransactionType = CcTransactionTypes.TRANSACTION_BOARDING_CREATE;
+            }
+
+
+            merchantModel.TransactingMerchant = transactingMerchant;
+            merchantModel.StrutualMerchant = strutualMerchant;
+            merchantModel.OrganizationMerchant = organizationMerchant;
+            merchantModel.VirtualTerminal = virtualTerminal;
+            merchantModel.UnifiedCheckout = unifiedCheckout;
+            merchantModel.TokenManagementService = tokenManagementService;
+            merchantModel.PayerAuthentication = payerAuthentication;
+            merchantModel.PayByLink = payByLink;
+            merchantModel.CustomerInvoicing = customerInvoicing;
+            merchantModel.Tax = tax;
+            merchantModel.DecisionManager = decisionManager;
+            merchantModel.OrganizationMerchant = organizationMerchant;
+            merchantModel.StrutualMerchant = strutualMerchant;
+            merchantModel.TransactingMerchant = transactingMerchant;
+            merchantModel.CardProcessing = cardProcessing;
+            merchantModel.CybsReadyTerminal = cybsReadyTerminal;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(merchantModel, options);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, _sessionTransactions, 
+                (CcTransactionTypes)sessionTransJson.CurrentTransactionType!);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionStatus != null && sessionResponse.TransactionStatus.Contains("error"))
+            {
+                error = "Error: " + sessionResponse.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.TransactionJson;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/processboardingresponse");
+            }
+            else
+            {
+                error = "Error: " + sessionResponse!.TransactionStatus;
+                sessionResponse.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+    private async void PopulateForm()
+    {
+        merchantModel = await GeneralUtilities.PopulateSampleMerchant();
+
+        virtualTerminal = true;
+        unifiedCheckout = true;
+        tokenManagementService = true;
+        payerAuthentication = true;
+        payByLink = true;
+        customerInvoicing = true;
+        tax = true;
+        decisionManager = true;
+        organizationMerchant = true;
+        strutualMerchant = false;
+        transactingMerchant = true;
+        cardProcessing = true;
+        cybsReadyTerminal = true;
+
+        StateHasChanged();
+    }
+
+    private void PopulateFormWithAdamInfo()
+    {
+        merchantModel.Address1 = "3916 Hermalinda St";
+        merchantModel.AdministrativeArea = "TX";
+        merchantModel.BusinessContactEmail = "ahw001@outlook.com";
+        merchantModel.BusinessContactFirstName = "Adam";
+        merchantModel.BusinessContactLastName = "Williams";
+        merchantModel.BusinessContactPhoneNumber = "512-529-1902";
+        merchantModel.BusinessInformationPhoneNumber = "512-529-1902";
+        merchantModel.BusinessInformationTimeZone = "America/Chicago";
+        merchantModel.Country = "US";
+        merchantModel.PostalCode = "78723";
+        merchantModel.EmergencyContactEmail = "ahw001@outlook.com";
+        merchantModel.EmergencyContactFirstName = "Adam";
+        merchantModel.EmergencyContactLastName = "Williams";
+        merchantModel.EmergencyContactPhoneNumber = "512-529-1902";
+        merchantModel.Locality = "Austin";
+        merchantModel.MerchantCategoryCode = 5999;
+        merchantModel.Name = "Adam's Test Merchant";
+        merchantModel.TechnicalContactEmail = "ahw001@outlook.com";
+        merchantModel.TechnicalContactFirstName = "Adam";
+        merchantModel.TechnicalContactLastName = "Williams";
+        merchantModel.TechnicalContactPhoneNumber = "512-529-1902";
+        merchantModel.WebsiteUrl = "https://www.testccprocessor.com";
+        merchantModel.Status = "LIVE";
+        merchantModel.Type = "TRANSACTING";
+        merchantModel.Configurable = "TRUE";
+
+        virtualTerminal = true;
+        unifiedCheckout = true;
+        tokenManagementService = true;
+        payerAuthentication = true;
+        payByLink = true;
+        customerInvoicing = true;
+        tax = true;
+        decisionManager = true;
+        organizationMerchant = false;
+        strutualMerchant = false;
+        transactingMerchant = true;
+        cardProcessing = true;
+        cybsReadyTerminal = true;
+
+        StateHasChanged();
+    }
+}
+

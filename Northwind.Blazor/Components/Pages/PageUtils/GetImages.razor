@@ -1,0 +1,214 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IHttpClientFactory httpClientFactory
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<hr class="my-4">
+
+<div class="col-md-5 col-lg-4 order-md-last">
+    <!-- The below FormSection shows Shopping Cart items-->
+    <h4 class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-primary">Your cart</span>
+        @if (cartService is null)
+        {
+            <span class="badge bg-primary rounded-pill">
+                0
+            </span>
+        }
+        else
+        {
+            <span class="badge bg-primary rounded-pill">
+                @cartService.cart.Count
+            </span>
+        }
+    </h4>
+    <FormSection>
+        @if (cartService is null)
+        {
+            <span>Cart is Loading ...  </span>
+        }
+        else
+        {
+            @foreach (var item in cartService.cart)
+            {
+                <ul class="list-group mb-3">
+                    <li class="list-group-item d-flex justify-content-between lh-sm">
+                        <div class="row">
+                            <div class="col">
+                                @if (categoryList.Count() != 0 && imageDictionary.ContainsKey(item.CategoryId))
+                                {
+                                    <img src="data:image/jpeg;base64,@imageDictionary[item.CategoryId]" alt="Retrieved Image" />
+                                }
+                                else if (isLoading)
+                                {
+                                    <p>Loading...</p>
+                                }
+                                else if (hasError)
+                                {
+                                    <p>Error loading image.</p>
+                                }
+                            </div>
+                            <div class="col">
+                                <h6 class="my-0"><b>Product name:</b> @item.ProductName</h6>
+                                <small class="text-body-secondary">Product ID: @item.ProductId</small>
+                                <span class="text-body-secondary">$@item.UnitPrice?.ToString("0.00")</span>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+                cartId++;
+            }
+        }
+        <li class="list-group-item d-flex justify-content-between">
+            <span>Total (USD)</span>
+            @if (cartService is null)
+            {
+                <span>Cart is Loading ...  </span>
+            }
+            else
+            {
+                <strong>$@cartService.TotalPrice?.ToString("0.00")</strong>
+            }
+        </li>
+    </FormSection>
+
+    <hr class="my-4">
+
+</div>
+
+@code {
+
+    [Parameter]
+    public int ImageId { get; set; } = 0;
+
+    private string? imageData;
+    private string? error;
+
+    private bool isLoading = true;
+    private bool hasError = false;
+
+    private int cartId = 0;
+    private int imageId = 0;
+
+    private decimal? FormAmount = 0;
+
+    private DBRandomCart cartService = new DBRandomCart();
+    private B2cCustomer? b2CCustomer;
+
+    private List<CategoryDto> categoryList = new List<CategoryDto>();
+    private CategoryDto? categoryDto = new CategoryDto();
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+
+    private Dictionary<int, string> imageDictionary = new Dictionary<int, string>();
+
+    private string imageOne = string.Empty;
+
+    protected async override Task OnInitializedAsync()
+    {
+        isLoading = true;
+        hasError = false;
+
+        _sessionTransactions = sessionTransactions;
+
+        if (_sessionTransactions is not null && _sessionTransactions.Transactions is not null && _sessionTransactions.Transactions.LastOrDefault() is not null && _sessionTransactions.Transactions.LastOrDefault()!.Customer is not null)
+        {
+            b2CCustomer = _sessionTransactions.Transactions.LastOrDefault()!.Customer;
+        }
+
+        if (b2CCustomer is not null && b2CCustomer.Cart is not null && b2CCustomer.TotalAmount is not null)
+        {
+            cartService.cart = b2CCustomer.Cart;
+            cartService.TotalPrice = b2CCustomer.TotalAmount;
+        }
+        else
+        {
+            await PopulateDefaultCart();
+        }
+
+        if (cartService.TotalPrice != 0M && cartService is not null)
+        {
+            Console.WriteLine($"Total Amount After Populate Cart: {cartService.TotalPrice}");
+        }
+        else
+        {
+            Console.WriteLine($"Cart service failed to initialize.");
+            throw new InvalidOperationException("Customer is null or zero");
+        }
+
+        await GetImagesAsync();
+
+        cartId = 0;
+        StateHasChanged();
+
+        base.OnInitialized();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            cartId = 0;
+            StateHasChanged();
+        }
+    }
+
+
+
+    private async Task GetImagesAsync()
+    {
+        try
+        {
+            categoryList = await GeneralUtilities.GetCategories();
+
+            imageDictionary.Clear();
+
+            foreach (var cat in categoryList)
+            {
+                if (cat.Picture != null)
+                {
+                    imageDictionary[cat.CategoryId] = Convert.ToBase64String(cat.Picture);
+                }
+            }
+
+            isLoading = false; // ✅ VERY IMPORTANT
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            error = $"Error: {ex.Message}";
+            Console.WriteLine($"Error: {ex.Message}");
+            hasError = true;
+            isLoading = false; // ✅ Still mark loading complete to prevent infinite loading
+        }
+    }
+
+
+
+
+    private async Task PopulateDefaultCart()
+    {
+        try
+        {
+            cartService = await GeneralUtilities.PopulateCart();
+            if (cartService == null && cartService?.TotalPrice is not null)
+            {
+                Console.WriteLine($"Cart total = {cartService.TotalPrice}");
+                FormAmount = cartService.TotalPrice;
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"No server connection {ex.Message}");
+            error = ex.Message;
+            error = "Error: " + ex.Message;
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+}

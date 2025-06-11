@@ -1,0 +1,80 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/semiintpossetup"
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>Semi Integrated POS Setup</h1>
+
+
+<FormSection>
+    <div class="row g-3">
+        <div class="col-12">
+            <label for="orderId" class="form-label">POS Setup Code: </label>
+            <InputText @bind-Value="b2CCustomer!.PosSetupCode" class="form-control" />
+        </div>
+        <div class="col-12">
+            <label for="orderId" class="form-label">POS Activation Code: </label>
+            <InputText @bind-Value="b2CCustomer.PosActivationCode" class="form-control" />
+        </div>
+    </div>
+    <hr class="my-4">
+    <button class="btn btn-primary" type="button" @onclick="SubmitForPosSetup">
+        SUBMIT FOR POS SETUP
+    </button>
+
+</FormSection>
+
+@code {
+
+    private string error = string.Empty;
+
+    private B2cCustomer b2CCustomer = new();
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson? sessionTransJson = new SessionTransJson();
+    private CcTransactionTypes _transactionType = CcTransactionTypes.SEMI_POS_SETUP;
+
+
+    protected override void OnInitialized()
+    {
+        Console.WriteLine("Inside Semi Integrated POS Setup.");
+
+    }
+
+    private async Task SubmitForPosSetup()
+    {
+        try
+        {
+            sessionTransJson!.CurrentTransactionType = CcTransactionTypes.SEMI_POS_SETUP;
+
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonString = JsonSerializer.Serialize(b2CCustomer, options);
+
+            // POST FOR SEMI INTEGRATED POS SETUP TRANSACTION *******
+
+            sessionTransJson = await CallMinAPIs.SubmitForFollowOn(jsonString, _sessionTransactions, _transactionType!);
+
+            // POST FOR SEMI INTEGRATED POS SETUP TRANSACTION *******
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            sessionTransJson!.error = error;
+            sessionTransactions.AddTrans(sessionTransJson);
+            Navigation.NavigateTo("/errorhandler");
+        }
+    }
+
+}
+
+
+

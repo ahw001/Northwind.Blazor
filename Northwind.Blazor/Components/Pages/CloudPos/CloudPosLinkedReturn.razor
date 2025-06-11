@@ -1,0 +1,213 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/cloudposlinkedreturn"
+
+
+@inject IHttpClientFactory httpClientFactory
+@inject ICartService cartService
+@inject ITransactionJson transactionJson
+@inject NavigationManager Navigation
+
+@inject ICustomersScoped customersScoped
+@inject ISessionTransactions sessionTransactions
+
+<h1>@transactionPageTitle</h1>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mb-2">
+            <div class="card">
+                <div class="card-body">
+                    @if (showResultCard)
+                    {
+                        <h3>Response Data:</h3>
+                        <h4>Note: Bearer Token Creation is done at the API level and is not shown for these transactions.</h4>
+                        <div class="card">
+                            <div class="card-title">
+                                <button class="btn btn-primary" type="button" @onclick="SubmitForFollowOn">
+                                    SUBMIT FOR LINKED REFUND
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                @if (propertyValues != null && propertyValues.Count > 0)
+                                {
+                                    <ul>
+                                        @foreach (var propertyValue in propertyValues)
+                                        {
+                                            <li>@propertyValue</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>@error</p>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="card-footer">
+                    <div>
+                        <button class="btn btn-primary" type="button" @onclick="SubmitForFollowOn">
+                            SUBMIT FOR LINKED REFUND
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    private string transactionPageTitle = string.Empty;
+
+    private string error = string.Empty;
+
+    private ISessionTransactions _sessionTransactions = new SessionTransactions();
+    private SessionTransJson sessionTransJson = new SessionTransJson();
+    private CcTransactionTypes currentTransaction;
+    private CloudPaymentResponseJson cloudPaymentResponseJson = new();
+    private JwtPayload tokenPayload = new JwtPayload();
+    private BearerTokenDto bearerTokenDto = new BearerTokenDto();
+    private B2cCustomer b2CCustomer = new();
+
+    private bool showResultCard = false;
+
+    string statusNode = string.Empty;
+    string id = string.Empty;
+    string orderId = string.Empty;
+
+    private List<string> propertyValues = new List<string>();
+
+    private JsonNode? _transactionJson = null;
+
+    protected override void OnInitialized()
+    {
+        _sessionTransactions = sessionTransactions;
+
+        sessionTransJson = _sessionTransactions.Transactions.LastOrDefault()!;
+
+        transactionPageTitle = sessionTransJson.CurrentTransactionType.ToString() + ": Follow on Transaction";
+
+        if (sessionTransJson is not null)
+        {
+            showResultCard = true;
+            currentTransaction = (CcTransactionTypes)sessionTransJson.CurrentTransactionType!;
+
+            if (sessionTransJson is not null)
+            {
+
+                cloudPaymentResponseJson = JsonSerializer.Deserialize<CloudPaymentResponseJson>(sessionTransJson!.TransactionJson!.ToString())!;
+
+                propertyValues = PropertiesProcessor.GetProperties(cloudPaymentResponseJson!);
+
+                b2CCustomer = sessionTransJson.Customer!;
+                b2CCustomer.PosTransId = cloudPaymentResponseJson!.TransactionDetails!.Id;
+            }
+            else
+            {
+                error = "No data found.";
+            }
+        }
+
+        base.OnInitialized();
+    }
+
+    private async Task SubmitForFollowOn()
+    {
+        try
+        {
+
+            // Serialize the empty object into a string for submission to create the bearer token
+
+            string emptyJson = "{}";
+
+            currentTransaction = CcTransactionTypes.CLOUD_POS_BEARER_CREATE;
+
+            // Serialize the object into a string for submission
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string bearerToken = JsonSerializer.Serialize(emptyJson, options);
+
+            // POST FOR CLOUD POS BEARER CREATE TRANSACTION *******
+
+            SessionTransJson sessionBearerResponse = await CallMinAPIs.SubmitForFollowOn(bearerToken, 
+                _sessionTransactions, currentTransaction);
+
+            // POST FOR CLOUD POS BEARER CREATE TRANSACTION *******
+
+            if (sessionBearerResponse != null && sessionBearerResponse.TransactionStatus != null && sessionBearerResponse.TransactionStatus.Contains("error"))
+            {
+                error = "Error: " + sessionBearerResponse.TransactionJson;
+                sessionBearerResponse!.error = error;
+                sessionTransactions.AddTrans(sessionBearerResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionBearerResponse != null && sessionBearerResponse.TransactionJson != null && sessionBearerResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                bearerTokenDto = JsonSerializer.Deserialize<BearerTokenDto>(sessionBearerResponse.TransactionJson)!;
+                bearerToken = bearerTokenDto.BearerToken!;
+            }
+            else
+            {
+                error = "Error: No response from server";
+                StateHasChanged();
+            }
+
+            string transJsonString = JsonSerializer.Serialize(sessionTransJson, options);
+
+            sessionTransJson.OriginalTransactionType = CcTransactionTypes.CLOUD_POS_BEARER_SALE;
+            sessionTransJson.CurrentTransactionType = CcTransactionTypes.CLOUD_POS_BEARER_RETURN;
+
+            sessionTransJson!.Customer!.BearerToken = bearerToken;
+            sessionTransJson!.Customer!.CloudPosType = "LinkedRefundRequest";
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            string jsonString = JsonSerializer.Serialize(sessionTransJson!.Customer!);
+
+            SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(jsonString, 
+                _sessionTransactions, (CcTransactionTypes)sessionTransJson.CurrentTransactionType);
+
+            // POST FOR FOLLOW ON TRANSACTION *******
+
+            if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Error)
+            {
+
+                var jsonNode = sessionResponse.TransactionJson;
+
+                string statusNode = (string)jsonNode!["status"]!;
+
+                error = "Error: " + statusNode;
+                sessionResponse = new();
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+
+            }
+            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+            {
+                _transactionJson = sessionResponse.TransactionJson;
+                sessionResponse.Customer = b2CCustomer;
+
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/cloudposresponse");
+            }
+            else
+            {
+                error = "Error: " + "No or bad response from server";
+                sessionResponse = new();
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                Navigation.NavigateTo("/errorhandler");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Error: " + ex.Message;
+            showResultCard = true;
+            //showFieldCard = false;
+        }
+    }
+}
+

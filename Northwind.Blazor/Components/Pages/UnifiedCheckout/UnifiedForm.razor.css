@@ -1,0 +1,144 @@
+﻿.body {
+    font-family: 'Open Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.42857143;
+    color: #333;
+    margin: 0;
+}
+
+.btn-primary:hover {
+    color: rgb(255, 255, 255);
+    background-color: rgb(40, 96, 144);
+    border-color: rgb(32, 77, 116);
+}
+
+.btn-lg {
+    padding: 10px 16px;
+    font-size: 18px;
+    line-height: 1.3333333;
+    border-radius: 6px;
+}
+
+hr {
+    border-top: 2px solid #222;
+    margin: 1em 0;
+}
+
+img.media-object {
+    max-width: 140px;
+}
+
+.panel {
+    margin-bottom: 20px;
+    background-color: #fff;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    -webkit-box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+}
+
+.panel-default {
+    border-color: #ddd;
+}
+
+.container {
+    padding-right: 15px;
+    padding-left: 15px;
+    margin-right: auto;
+    margin-left: auto;
+    width: 80%;
+}
+
+#show-capture-context-btn {
+    float: right;
+    margin-top: 6px;
+}
+
+#leftPanelContainer {
+    padding-bottom: 15px;
+    flex: 2;
+}
+
+#rightPanelContainer {
+    flex: 1;
+    margin-left: 1em;
+    height: 100%;
+    max-width: 360px;
+    width: 100%;
+}
+
+.cart-items > .cart-item {
+    margin-bottom: 1em;
+}
+
+.cart-item {
+    display: flex;
+    padding: 1em;
+    background: #d8d8d8;
+}
+
+.cart-item-body {
+    margin-left: 1em;
+}
+
+#buttonPaymentListContainer {
+    display: flex;
+    flex-direction: column;
+}
+
+    #buttonPaymentListContainer > .btn:not(:last-child) {
+        margin-bottom: 0.5em;
+    }
+
+pre {
+    display: block;
+    padding: 9.5px;
+    margin: 0 0 10px;
+    font-size: 13px;
+    line-height: 1.42857143;
+    color: #333;
+    word-break: break-all;
+    word-wrap: break-word;
+    background-color: #f5f5f5;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    white-space: pre-wrap;
+}
+
+.panel-body {
+    padding: 1em;
+}
+
+p {
+    margin: 0.2em 0;
+}
+
+h4 {
+    margin: 0.5em 0;
+    font-weight: 200;
+    font-size: 1.2em;
+}
+
+.row {
+    display: flex;
+    width: 100%;
+}
+
+.pull-right {
+    float: right;
+}
+
+@media (max-width: 900px) {
+    .row {
+        flex-direction: column;
+    }
+
+    #leftPanelContainer {
+        flex: 1;
+    }
+
+    #rightPanelContainer {
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
