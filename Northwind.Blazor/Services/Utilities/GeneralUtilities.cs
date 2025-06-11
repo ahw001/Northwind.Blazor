@@ -1,4 +1,5 @@
-﻿using Northwind.Blazor.Model;
+﻿using Microsoft.Extensions.Options;
+using Northwind.Blazor.Model;
 using Northwind.Blazor.Model.Cybersource.BaseData;
 using Northwind.Blazor.Model.Cybersource.Transactions;
 using Northwind.Blazor.Model.DBQueries;
@@ -271,6 +272,10 @@ namespace Northwind.Blazor.Services.Utilities
             currentTransaction = new CcTransactionTypes();
             currentTransaction = CcTransactionTypes.RANDOM_CUSTOMER;
 
+            const int maxRetries = 3;
+            int attempt = 0;
+            bool success = false;
+
             if (sampleCards is not null)
             {
                 JsonSerializerOptions jsonOptions = new()
@@ -288,7 +293,36 @@ namespace Northwind.Blazor.Services.Utilities
                         var jsonNode = sessionResponse.TransactionJson;
 
                         Console.WriteLine(jsonNode.ToString());
-                        customer = JsonSerializer.Deserialize<DBSampleCustomerDatum>(jsonNode); // Fixed instantiation
+
+                        while (attempt < maxRetries && !success)
+                        {
+                            try
+                            {
+                                attempt++;
+
+                                // Optional: dump JSON on first failure
+                                if (attempt > 1)
+                                    Console.WriteLine($"Retrying deserialization attempt {attempt}...\nJSON: {jsonNode?.ToJsonString()}");
+
+                                customer = JsonSerializer.Deserialize<DBSampleCustomerDatum>(jsonNode!, jsonOptions);
+                                success = true;
+                            }
+                            catch (JsonException ex)
+                            {
+                                Console.WriteLine($"Deserialization failed on attempt {attempt}: {ex.Message}");
+
+                                if (attempt == maxRetries)
+                                {
+                                    // Log and handle failure after all retries
+                                    error = $"Deserialization failed after {maxRetries} attempts: {ex.Message}";
+                                    customer = null;
+                                }
+
+                                await Task.Delay(50); // Optional short delay between retries
+                            }
+                        }
+
+
                         if (customer is not null && sampleCards is not null)
                         {
                             Random random = new Random();
@@ -321,6 +355,19 @@ namespace Northwind.Blazor.Services.Utilities
                         }
                         else
                         {
+                            if (customer is null)
+                            {
+                                Console.WriteLine("INSIDE GeneralUtilities.PopulateBilling() CUSTOMER OBJECT IS NULL!!!!");
+                                error = "Error: " + "GeneralUtilities.PopulateBilling() CUSTOMER OBJECT IS NULL";
+                            }
+
+                            if (sampleCards is null)
+                            {
+                                Console.WriteLine("INSIDE GeneralUtilities.PopulateBilling() SAMPLE CARDS OBJECT IS NULL!!!!");
+                                error = "Error: " + "GeneralUtilities.PopulateBilling() SAMPLE CARDS OBJECT IS NULL";
+                            }
+
+
                             sessionResponse!.error = "Error: " + "Empty Object Returned";
                             sessionTransactions.AddTrans(sessionResponse);
                             error = sessionResponse!.error;

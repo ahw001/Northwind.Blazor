@@ -54,7 +54,9 @@
 </div>
 
 @code {
+    
     private bool Show = true;
+    private bool containsError = false;
 
     List<string> HomeFormElements = new List<string> { "ShowMainForm", "ShowBilling", "ShowAccountDetails", "ShowCreateToken" };
 
@@ -63,6 +65,8 @@
     private List<string> TokenTypes = new();
 
     private B2cCustomer b2CCustomer = new();
+
+    private static List<BasicErrorInfo> basicErrorInfos = new List<BasicErrorInfo>();
 
     private ISessionTransactions _sessionTransactions = new SessionTransactions();
 
@@ -108,25 +112,39 @@
 
             // POST FOR FOLLOW ON TRANSACTION *******
 
-            if (sessionResponse != null && sessionResponse.TransactionStatus != null && sessionResponse.TransactionStatus.Contains("error"))
+            string[] errorKeywords = ["INVALID", "ERROR", "FAILED", "DECLINED", "invalid", "error", "failed", "declined"];
+
+
+            if (sessionResponse is null)
             {
-                error = "Error: " + sessionResponse.TransactionStatus;
+                StateHasChanged(); // optional
+                error = "Session Response is null";
+                sessionResponse = new SessionTransJson();
+                sessionResponse.JsonTransactionStateValues = TransactionStateValues.Error;
                 sessionResponse.error = error;
                 sessionTransactions.AddTrans(sessionResponse);
                 Navigation.NavigateTo("/errorhandler");
             }
-            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+
+            if (sessionResponse is not null && sessionResponse.TransactionJson is not null)
             {
-                _transactionJson = sessionResponse.TransactionJson;
-                sessionTransactions.AddTrans(sessionResponse);
-                Navigation.NavigateTo("/processfollowontoken");
+                basicErrorInfos = JsonErrorExtractor.ExtractErrorObjects(sessionResponse.TransactionJson.ToString());
+
+                containsError = basicErrorInfos.Any(e =>
+                    !string.IsNullOrWhiteSpace(e.Status) &&
+                    errorKeywords.Any(keyword =>
+                        e.Status.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (sessionResponse != null && containsError)
+            {
+                StateHasChanged(); // optional
+                Navigation.NavigateTo("/errorhandler");
             }
             else
             {
-                error = "Error: " + sessionResponse!.TransactionStatus;
-                sessionResponse.error = error;
-                sessionTransactions.AddTrans(sessionResponse);
-                Navigation.NavigateTo("/errorhandler");
+                sessionTransactions.AddTrans(sessionResponse!);
+                Navigation.NavigateTo("/processfollowontoken");
             }
         }
         catch (Exception ex)
