@@ -204,8 +204,6 @@
             sessionTransJson.OriginalTransactionType = CcTransactionTypes.STANDALONE_AFT_TRANSACTION;
             sessionTransJson.CurrentTransactionType = CcTransactionTypes.STANDALONE_AFT_TRANSACTION;
 
-            aftRequestDto.CurrentTransaction = CcTransactionTypes.STANDALONE_AFT_TRANSACTION.ToString();
-
             // Serialize the object into a string for submission
 
             var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
