@@ -26,6 +26,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
+
 // Configure application cookie
 builder.Services.ConfigureApplicationCookie(options =>
 {
