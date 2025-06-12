@@ -54,7 +54,7 @@
 </div>
 
 @code {
-    
+
     private bool Show = true;
     private bool containsError = false;
 
@@ -112,21 +112,30 @@
 
             // POST FOR FOLLOW ON TRANSACTION *******
 
-            string[] errorKeywords = ["INVALID", "ERROR", "FAILED", "DECLINED", "invalid", "error", "failed", "declined"];
+            string[] errorKeywords = ["Exception", "EXCEPTION", "INVALID", "ERROR", "FAILED", "DECLINED", "exception", "invalid", "error", "failed", "declined"];
 
 
             if (sessionResponse is null)
             {
-                StateHasChanged(); // optional
+                Show = false;
                 error = "Session Response is null";
                 sessionResponse = new SessionTransJson();
                 sessionResponse.JsonTransactionStateValues = TransactionStateValues.Error;
                 sessionResponse.error = error;
                 sessionTransactions.AddTrans(sessionResponse);
+                //StateHasChanged(); // optional
                 Navigation.NavigateTo("/errorhandler");
             }
-
-            if (sessionResponse is not null && sessionResponse.TransactionJson is not null)
+            else if (sessionResponse is not null && sessionResponse.TransactionJson is null)
+            {
+                Show = false;
+                error = "Error: " + "NO TRANSACTION JSON IN RESPONSE";
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
+                StateHasChanged(); // optional
+                Navigation.NavigateTo("/errorhandler");
+            }
+            else if (sessionResponse is not null && sessionResponse.TransactionJson is not null)
             {
                 basicErrorInfos = JsonErrorExtractor.ExtractErrorObjects(sessionResponse.TransactionJson.ToString());
 
@@ -134,21 +143,32 @@
                     !string.IsNullOrWhiteSpace(e.Status) &&
                     errorKeywords.Any(keyword =>
                         e.Status.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+
+                if (!containsError && sessionResponse.TransactionJson.ToString().Contains("Exception", StringComparison.OrdinalIgnoreCase))
+                {
+                    containsError = true;
+                }
             }
 
-            if (sessionResponse != null && containsError)
+            if (sessionResponse != null && sessionResponse.TransactionJson is not null && containsError)
             {
+                Show = false;
+                error = "Error: " + sessionResponse.TransactionJson.ToString();
+                sessionResponse!.error = error;
+                sessionTransactions.AddTrans(sessionResponse);
                 StateHasChanged(); // optional
                 Navigation.NavigateTo("/errorhandler");
             }
-            else
+            else 
             {
+                Show = false;
                 sessionTransactions.AddTrans(sessionResponse!);
                 Navigation.NavigateTo("/processfollowontoken");
             }
         }
         catch (Exception ex)
         {
+            Show = false;
             error = "Error: " + ex.Message;
             SessionTransJson sessionResponse = new();
             sessionResponse!.error = error;

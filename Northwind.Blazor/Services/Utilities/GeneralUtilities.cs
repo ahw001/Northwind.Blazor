@@ -31,6 +31,8 @@ namespace Northwind.Blazor.Services.Utilities
         private static CcTransactionTypes currentTransaction;
         private static ISessionTransactions sessionTransactions = new SessionTransactions();
 
+
+
         public static int GenerateRandomNumber(int minValue, int maxValue)
         {
             if (minValue >= maxValue)
@@ -285,6 +287,8 @@ namespace Northwind.Blazor.Services.Utilities
 
                 try
                 {
+                    Console.WriteLine($"Calling SubmitForFollowOn with type: {currentTransaction}");
+
                     SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(input,
                         sessionTransactions, currentTransaction);
 
@@ -304,7 +308,27 @@ namespace Northwind.Blazor.Services.Utilities
                                 if (attempt > 1)
                                     Console.WriteLine($"Retrying deserialization attempt {attempt}...\nJSON: {jsonNode?.ToJsonString()}");
 
-                                customer = JsonSerializer.Deserialize<DBSampleCustomerDatum>(jsonNode!, jsonOptions);
+                                if (jsonNode is JsonObject)
+                                {
+                                    customer = JsonSerializer.Deserialize<DBSampleCustomerDatum>(jsonNode, jsonOptions);
+                                }
+                                else if (jsonNode is JsonArray)
+                                {
+                                    Console.WriteLine("❌ ERROR: Expected a customer object, but got an array.");
+                                    error = "Unexpected JSON structure: array instead of object";
+                                }
+                                else
+                                {
+                                    Console.WriteLine("❌ ERROR: Unexpected JSON type for customer data.");
+                                    error = "Unexpected JSON type for customer data";
+                                }
+
+
+                                if (customer == null)
+                                {
+                                    Console.WriteLine($"❌ Deserialization returned null. Raw JSON: {jsonNode!.ToJsonString()}");
+                                }
+
                                 success = true;
                             }
                             catch (JsonException ex)
@@ -360,15 +384,17 @@ namespace Northwind.Blazor.Services.Utilities
                                 Console.WriteLine("INSIDE GeneralUtilities.PopulateBilling() CUSTOMER OBJECT IS NULL!!!!");
                                 error = "Error: " + "GeneralUtilities.PopulateBilling() CUSTOMER OBJECT IS NULL";
                             }
-
-                            if (sampleCards is null)
+                            else if (sampleCards is null)
                             {
                                 Console.WriteLine("INSIDE GeneralUtilities.PopulateBilling() SAMPLE CARDS OBJECT IS NULL!!!!");
                                 error = "Error: " + "GeneralUtilities.PopulateBilling() SAMPLE CARDS OBJECT IS NULL";
                             }
+                            else
+                            {
+                                error = "Error: " + "UNKNOWN ISSUE: No or bad response from server";
+                            }
 
-
-                            sessionResponse!.error = "Error: " + "Empty Object Returned";
+                            sessionResponse!.error = error;
                             sessionTransactions.AddTrans(sessionResponse);
                             error = sessionResponse!.error;
                             var sampleCustomer = new B2cCustomer();

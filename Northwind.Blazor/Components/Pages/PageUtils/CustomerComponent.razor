@@ -48,7 +48,11 @@
                                 <label class="form-check-label me-2" for="includeAuth"><b>Include Auth:</b></label>
                             </div>
                             <div class="col-3 border d-flex justify-content-center align-items-center">
-                                <input type="checkbox" @bind="IncludeAuth" class="form-check-input" id="includeAuth" />
+                            <input type="checkbox"
+                               class="form-check-input"
+                               id="includeAuth"
+                               @bind-value="IncludeAuth"
+                               @bind-value:event="onchange" />
                             </div>
                         }
                     </div>
@@ -769,7 +773,7 @@ else
             customer.Freight = new();
             customer.LineItem = new();
         }
-        
+
         EnsureCustomerInitialized();
 
         try 
@@ -864,9 +868,10 @@ else
 
     public async Task HandleValidSubmit()
     {
+        await Task.Delay(1);
 
+        //IncludeAuth = false;
         IsChecked = false;
-        IncludeAuth = false;
         InstIdChecked  = false;
         ShippingInstChecked  = false;
         PayInstChecked  = false;
@@ -930,6 +935,7 @@ else
 
                 if (customer is not null && IncludeAuth)
                 {
+                    Console.WriteLine($"IncludeAuth = {IncludeAuth}");
                     customer.PerformZeroAuth = true;
                 }
             }
@@ -979,7 +985,7 @@ else
 
             if (SafeFormElements.Contains("ShowCreateToken"))
             {
-                IncludeAuth = false;
+                //IncludeAuth = false;
                 InstIdChecked = true;
                 ShippingInstChecked = true;
                 PayInstChecked = true;
