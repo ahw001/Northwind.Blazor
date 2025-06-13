@@ -1,6 +1,8 @@
 ﻿@rendermode InteractiveServer
 @page "/billing-test"
 
+@inject ICardService cardService
+
 <h3>PopulateBilling Test Runner</h3>
 
 <button class="btn btn-primary me-2" @onclick="RunTests" disabled="@isRunning">
@@ -48,7 +50,7 @@ else if (results.Count > 0)
 
             try
             {
-                result = await GeneralUtilities.PopulateBilling();
+                result = await GeneralUtilities.PopulateBilling(cardService.Cards.ToList());
             }
             catch (Exception ex)
             {

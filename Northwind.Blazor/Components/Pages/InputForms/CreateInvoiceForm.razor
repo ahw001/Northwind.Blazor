@@ -55,6 +55,7 @@
 
 @code {
     private bool Show = true;
+    private bool containsError = false;
 
     List<string> HomeFormElements = new List<string> { "ShowMainForm", "ShowBilling", "ShowDefaults", "ShowCart", "ShowInvoice" };
 
@@ -69,6 +70,8 @@
     private SessionTransJson sessionTransJson = new();
 
     private JsonNode? _transactionJson = null;
+
+    private static List<BasicErrorInfo> basicErrorInfos = new List<BasicErrorInfo>();
 
 
     protected override void OnInitialized()
@@ -107,25 +110,38 @@
 
             // POST FOR FOLLOW ON TRANSACTION *******
 
-            if (sessionResponse != null && sessionResponse.TransactionStatus != null && sessionResponse.TransactionStatus.Contains("error"))
+            string[] errorKeywords = ["Exception", "INVALID", "BAD", "ERROR", "FAILED", "DECLINED", "invalid", "error", "failed", "declined"];
+
+            if (sessionResponse is null)
             {
-                error = "Error: " + sessionResponse.TransactionStatus;
+                StateHasChanged(); // optional
+                error = "Session Response is null";
+                sessionResponse = new SessionTransJson();
+                sessionResponse.JsonTransactionStateValues = TransactionStateValues.Error;
                 sessionResponse.error = error;
                 sessionTransactions.AddTrans(sessionResponse);
                 Navigation.NavigateTo("/errorhandler");
             }
-            else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
+
+            if (sessionResponse is not null && sessionResponse.TransactionJson is not null)
             {
-                _transactionJson = sessionResponse.TransactionJson;
-                sessionTransactions.AddTrans(sessionResponse);
-                Navigation.NavigateTo("/processfollowoninvoice");
+                basicErrorInfos = JsonErrorExtractor.ExtractErrorObjects(sessionResponse.TransactionJson.ToString());
+
+                containsError = basicErrorInfos.Any(e =>
+                    !string.IsNullOrWhiteSpace(e.Status) &&
+                    errorKeywords.Any(keyword =>
+                        e.Status.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (sessionResponse != null && containsError)
+            {
+                StateHasChanged(); // optional
+                Navigation.NavigateTo("/errorhandler");
             }
             else
             {
-                error = "Error: " + sessionResponse!.TransactionStatus;
-                sessionResponse.error = error;
-                sessionTransactions.AddTrans(sessionResponse);
-                Navigation.NavigateTo("/errorhandler");
+                sessionTransactions.AddTrans(sessionResponse!);
+                Navigation.NavigateTo("/processfollowoninvoice");
             }
         }
         catch (Exception ex)

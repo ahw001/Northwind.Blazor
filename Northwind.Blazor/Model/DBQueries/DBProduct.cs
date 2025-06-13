@@ -34,5 +34,8 @@ public class DBProduct
     [JsonPropertyName("discontinued")]
     public bool Discontinued { get; set; }
 
+    [JsonPropertyName("productSku")]
+    public string? ProductSku { get; set; }
+
 }
 

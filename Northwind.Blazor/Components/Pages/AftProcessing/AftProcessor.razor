@@ -3,6 +3,7 @@
 
 @inject NavigationManager Navigation
 @inject ISessionTransactions sessionTransactions
+@inject ICardService cardService
 
 
 
@@ -195,7 +196,7 @@
         };
 
     }
-    
+
     private async void HandleValidSubmit()
     {
         try
@@ -277,7 +278,7 @@
 
         try
         {
-            paymentCardSampleDatumDtos = await GeneralUtilities.GetSampleCards();
+            paymentCardSampleDatumDtos = cardService.Cards.ToList();
 
             int paymentCardCount = paymentCardSampleDatumDtos.Count();
 

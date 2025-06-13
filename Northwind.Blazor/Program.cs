@@ -16,6 +16,8 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<ITransactionJson, TransactionJson>();
 builder.Services.AddScoped<ICustomersScoped, CustomersScoped>();
 builder.Services.AddScoped<ISessionTransactions, SessionTransactions>();
+builder.Services.AddSingleton<ICardService, CardService>();
+builder.Services.AddHostedService<CardServiceInitializer>();
 builder.Services.AddSingleton<IConfiguration>(builder.Configuration);
 
 

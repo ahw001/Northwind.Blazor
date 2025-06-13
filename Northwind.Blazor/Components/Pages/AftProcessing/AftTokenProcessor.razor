@@ -3,6 +3,7 @@
 
 @inject NavigationManager Navigation
 @inject ISessionTransactions sessionTransactions
+@inject ICardService cardService
 
 
 
@@ -266,7 +267,7 @@
 
         try
         {
-            paymentCardSampleDatumDtos = await GeneralUtilities.GetSampleCards();
+            paymentCardSampleDatumDtos = cardService.Cards.ToList();
 
             int paymentCardCount = paymentCardSampleDatumDtos.Count();
 

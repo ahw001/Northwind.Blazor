@@ -2,6 +2,7 @@
 
 @inject NavigationManager Navigation
 @inject ISessionTransactions sessionTransactions
+@inject ICardService cardService
 
 
 @if (!ShowProcessing)
@@ -749,6 +750,8 @@ else
 
     private JsonNode? _transactionJson = null;
 
+    private List<PayerAuthCardSampleDto> _cardList = new();
+
     private DBRandomCart cartService = new DBRandomCart();
 
     private ISessionTransactions _sessionTransactions = new SessionTransactions();
@@ -760,6 +763,22 @@ else
 
     protected override void OnParametersSet()
     {
+        if (cardService is not null && cardService.Cards is not null)
+        {
+            _cardList = cardService.Cards.ToList();
+        }
+        else
+        {
+
+            Console.WriteLine("No cards found in card list - Is Practicle Apps Server Running");
+            error = "No cards found in card list - Is Practicle Apps Server Running";
+            SessionTransJson sessionResponse = new();
+            sessionResponse!.error = error;
+            sessionTransactions.AddTrans(sessionResponse);
+            Navigation.NavigateTo("/errorhandler");
+        }
+
+
 
         if (FormCustomer is not null)
         {
@@ -871,11 +890,11 @@ else
         await Task.Delay(1);
 
         //IncludeAuth = false;
-        IsChecked = false;
-        InstIdChecked  = false;
-        ShippingInstChecked  = false;
-        PayInstChecked  = false;
-        CustInstChecked  = false;
+        //IsChecked = false;
+        //InstIdChecked  = false;
+        //ShippingInstChecked  = false;
+        //PayInstChecked  = false;
+        //CustInstChecked  = false;
         newTransaction  = false;
         ShowPosCancel  = false;
         ShowPosMoto  = false;
@@ -992,7 +1011,7 @@ else
                 CustInstChecked = true;
             }
 
-            customer = await GeneralUtilities.PopulateBilling();
+            customer = await GeneralUtilities.PopulateBilling(_cardList);
 
             if (customer == null || customer.Error is not null || customer.AccountNumber is null)
             {
@@ -1089,7 +1108,7 @@ else
                             customer.AmountDetails!.DiscountAmount = (dBProduct.UnitPrice * Convert.ToDecimal(customer.AmountDetails.DiscountPercent)).ToString();
                             customer.AmountDetails.SubAmount = (0.00m).ToString();
                             customer.AmountDetails.MinimumPartialAmount = (localMinimumPartialAmount * .20m)?.ToString("0.##");
-                            customer.LineItem!.ProductSku = sampleInvoiceDetailDto.OrderInformationLineItemsProductSku;
+                            customer.LineItem!.ProductSku = dBProduct.ProductSku;
                             customer.LineItem!.UnitPrice = dBProduct.UnitPrice;
                             customer.LineItem!.Quantity = 1;
                             customer.LineItem!.TaxRate = 5.25m;

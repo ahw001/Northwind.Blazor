@@ -188,88 +188,9 @@ namespace Northwind.Blazor.Services.Utilities
             }
         }
 
-        public static async Task<List<PayerAuthCardSampleDto>> GetSampleCards()
-        {
-            sampleCards = new List<PayerAuthCardSampleDto>();
-
-            JsonSerializerOptions jsonOptions = new()
-            {
-                PropertyNameCaseInsensitive = true
-            };
-
-            currentTransaction = new CcTransactionTypes();
-            currentTransaction = CcTransactionTypes.SAMPLE_CARD_LIST;
-
-            string input = "{}";
-
-            try
-            {
-                SessionTransJson sessionResponse = await CallMinAPIs.SubmitForFollowOn(input,
-                    sessionTransactions, currentTransaction);
-
-                if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Complete)
-                {
-                    var jsonNode = sessionResponse.TransactionJson;
-                    sampleCards = JsonSerializer.Deserialize<List<PayerAuthCardSampleDto>>(jsonNode); // Fixed instantiation
-                    if (sampleCards is not null)
-                    {
-                        return sampleCards.ToList();
-                    }
-                    else
-                    {
-                        error = "Error: " + "No or bad response from server";
-                        sessionResponse!.error = error;
-                        sessionTransactions.AddTrans(sessionResponse);
-                        sampleCard = new();
-                        sampleCards = new List<PayerAuthCardSampleDto>(); // Fixed instantiation
-                        sampleCard.Error = error;
-                        sampleCards.Add(sampleCard);
-                        return sampleCards.ToList();
-                    }
-
-                }
-                else if (sessionResponse != null && sessionResponse.TransactionJson != null && sessionResponse.JsonTransactionStateValues == TransactionStateValues.Error)
-                {
-                    var jsonNode = sessionResponse.TransactionJson;
-                    sampleCard = new();
-                    sampleCards = new List<PayerAuthCardSampleDto>(); // Fixed instantiation
-                    sampleCard.Error = "Error: " + sessionResponse.TransactionStatus;
-                    sampleCards.Add(sampleCard);
-                    return sampleCards.ToList();
-                }
-                else
-                {
-                    error = "Error: " + "No or bad response from server";
-                    sampleCard = new();
-                    sampleCards = new List<PayerAuthCardSampleDto>(); // Fixed instantiation
-                    sampleCard.Error = error;
-                    sampleCards.Add(sampleCard);
-                    return sampleCards.ToList();
-                }
-            }
-            catch (Exception ex)
-            {
-                error = "Error: " + ex.Message;
-                SessionTransJson sessionResponse = new();
-                sessionResponse!.error = error;
-                sessionTransactions.AddTrans(sessionResponse);
-
-                // Return an empty list with the error message
-                sampleCard = new();
-                sampleCards = new List<PayerAuthCardSampleDto>(); // Fixed instantiation
-                sampleCard.Error = error;
-                sampleCards.Add(sampleCard);
-                return [.. sampleCards];
-            }
-        }
-
-        public static async Task<B2cCustomer> PopulateBilling()
+        public static async Task<B2cCustomer> PopulateBilling(List<PayerAuthCardSampleDto> cardList)
         {
             string input = "{}";
-
-            sampleCards = [];
-
-            sampleCards = await GetSampleCards();
 
             currentTransaction = new CcTransactionTypes();
             currentTransaction = CcTransactionTypes.RANDOM_CUSTOMER;
@@ -278,7 +199,7 @@ namespace Northwind.Blazor.Services.Utilities
             int attempt = 0;
             bool success = false;
 
-            if (sampleCards is not null)
+            if (cardList is not null)
             {
                 JsonSerializerOptions jsonOptions = new()
                 {
@@ -347,12 +268,12 @@ namespace Northwind.Blazor.Services.Utilities
                         }
 
 
-                        if (customer is not null && sampleCards is not null)
+                        if (customer is not null && cardList is not null)
                         {
                             Random random = new Random();
 
-                            int index = random.Next(0, sampleCards.Count);
-                            sampleCard = sampleCards[index];
+                            int index = random.Next(0, cardList.Count);
+                            sampleCard = cardList[index];
 
                             var sampleCustomer = new B2cCustomer
                             {
@@ -384,7 +305,7 @@ namespace Northwind.Blazor.Services.Utilities
                                 Console.WriteLine("INSIDE GeneralUtilities.PopulateBilling() CUSTOMER OBJECT IS NULL!!!!");
                                 error = "Error: " + "GeneralUtilities.PopulateBilling() CUSTOMER OBJECT IS NULL";
                             }
-                            else if (sampleCards is null)
+                            else if (cardList is null)
                             {
                                 Console.WriteLine("INSIDE GeneralUtilities.PopulateBilling() SAMPLE CARDS OBJECT IS NULL!!!!");
                                 error = "Error: " + "GeneralUtilities.PopulateBilling() SAMPLE CARDS OBJECT IS NULL";
