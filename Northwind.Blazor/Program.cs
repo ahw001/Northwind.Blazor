@@ -1,12 +1,9 @@
 ﻿using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Mvc;
 using Northwind.Blazor.Components;
-using Northwind.Blazor.Model.Cybersource.PayerAuthentication;
 using Northwind.Blazor.Services.DIServices;
 using Northwind.Blazor.Services.Utilities;
-using System;
 using System.Net.Http.Headers;
-using System.Transactions;
 
 var builder = WebApplication.CreateBuilder(args);
 
