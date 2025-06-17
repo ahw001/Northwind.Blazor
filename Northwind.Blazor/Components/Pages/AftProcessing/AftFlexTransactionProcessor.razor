@@ -283,13 +283,13 @@
             aftRequestDto.ProcessingInformation = new ProcessingInformation();
             aftRequestDto.PaymentInformation!.Card = new FullCard();
 
-            int random = GeneralUtilities.GenerateRandomNumber(1, 65);
+            int random = GeneralClientUtilities.GenerateRandomNumber(1, 65);
 
-            string aftReferenceNumber = GeneralUtilities.GenerateRandom1FixedNumber(15);
+            string aftReferenceNumber = GeneralClientUtilities.GenerateRandomFixedNumber(15);
 
             aftRequestDto = await GeneralUtilities.PopulateSampleAft(aftOnly);
 
-            aftRequestDto.OrderInformation!.AmountDetails!.TotalAmount = GeneralUtilities.GenerateRandomAmount().ToString();
+            aftRequestDto.OrderInformation!.AmountDetails!.TotalAmount = GeneralClientUtilities.GenerateRandomAmount().ToString();
 
             aftRequestDto.ProcessingInformation!.BusinessApplicationId = "AA";
             aftRequestDto.RecipientInformation!.AccountType = "06";

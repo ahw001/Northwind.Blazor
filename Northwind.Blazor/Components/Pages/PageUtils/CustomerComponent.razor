@@ -1099,7 +1099,7 @@ else
                             sampleInvoiceDetailDto = sampleInvoiceDetailDtos!.ElementAt(randomNumber)!;
 
                             customer.CompanyName = sampleInvoiceDetailDto.CustomerInformationCompanyName;
-                            customer.InvoiceInformation!.InvoiceNumber = GeneralUtilities.GenerateRandom20DigitNumber();
+                            customer.InvoiceInformation!.InvoiceNumber = GeneralClientUtilities.GenerateRandom20DigitNumber();
                             customer.InvoiceInformation.Description = "Test Invoice";
                             customer.InvoiceInformation.DueDate = today.AddDays(30).ToShortDateString();
                             customer.InvoiceInformation.DeliveryMode = "Email";

@@ -39,6 +39,9 @@ namespace Northwind.Blazor.Model.Cybersource.ErrorModel
 
         [JsonPropertyName("errorInformation")]
         public ErrorInformation? ErrorInformation { get; set; }
+
+        [JsonPropertyName("response")]
+        public Response Response { get; set; } = new Response();
     }
 
     public class Detail

@@ -34,6 +34,14 @@ public class ErrorObject
 
     [JsonPropertyName("action")]
     public string? Action { get; set; }
+
+}
+
+public class Response
+{
+    [JsonPropertyName("rmsg")]
+    public string? Rmsg { get; set; }
+
 }
 
 public class SenderInformation

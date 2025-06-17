@@ -271,14 +271,14 @@
 
             int paymentCardCount = paymentCardSampleDatumDtos.Count();
 
-            int random = GeneralUtilities.GenerateRandomNumber(1, 65);
+            int random = GeneralClientUtilities.GenerateRandomNumber(1, 65);
 
-            int paymentCardRandom = GeneralUtilities.GenerateRandomNumber(1, paymentCardCount);
+            int paymentCardRandom = GeneralClientUtilities.GenerateRandomNumber(1, paymentCardCount);
 
             //paymentCardSampleDatumDTO = paymentCardSampleDatumDtos.Select(x => x).ElementAt(paymentCardRandom - 1);
             paymentCardSampleDatumDTO = paymentCardSampleDatumDtos.ElementAt(paymentCardRandom - 1);
 
-            string aftReferenceNumber = GeneralUtilities.GenerateRandom1FixedNumber(15);
+            string aftReferenceNumber = GeneralClientUtilities.GenerateRandomFixedNumber(15);
 
             aftRequestDto = await GeneralUtilities.PopulateSampleAft(aftOnly);
 

@@ -65,6 +65,56 @@
                 </div>
             </div>
         }
+        @if (showFlexError)
+        {
+            <div class="col-sm-6 mb-3 mb-sm-0">
+                <div class="card">
+                    <div class="card-title">
+                        <h3>Flex Error:</h3>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="flexform">Complete Flex Checkout</a></li>
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    <div class="card-body">
+                        @if (propertyValues != null && propertyValues.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var propertyValue in propertyValues)
+                                {
+                                    <li>@propertyValue</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@error</p>
+                        }
+                    </div>
+                    <div class="card-footer">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Follow on Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="unifiedform">Complete Flex Transaction</a></li>
+                                <li><a class="dropdown-item" href="tokencreate">New Token Create</a></li>
+                                <li><a class="dropdown-item" href="checkout">New Checkout</a></li>
+                                <li><a class="dropdown-item" href="unifiedcheckout">New Unified Checkout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 </div>
 
@@ -81,9 +131,11 @@
     private CcTransactionTypes currentTransaction;
     private JwtPayload tokenPayload = new JwtPayload();
     private CaptureContextDto captureContextDto = new CaptureContextDto();
+    private ErrorResponse? errorResponse = null;
 
     private bool showFlexToken = false;
     private bool showFlexHeader = false;
+    private bool showFlexError = false;
 
 
     string statusNode = string.Empty;
@@ -109,17 +161,30 @@
             {
                 captureContextDto = new();
 
-                showFlexToken = true;
                 showFlexHeader = true;
                 currentTransaction = (CcTransactionTypes)sessionTransJson.CurrentTransactionType!;
 
                 captureContextDto = JsonSerializer.Deserialize<CaptureContextDto>(sessionTransJson.TransactionJson)!;
 
-                string token = captureContextDto.Ctx!;
-                var handler = new JwtSecurityTokenHandler();
-                var jsonToken = handler.ReadJwtToken(token);
-                tokenPayload = jsonToken.Payload;
+                if (captureContextDto is not null && captureContextDto.Ctx is not null && captureContextDto.Ctx.Contains("Authentication Failed"))
+                {
+                    showFlexToken = false;
+                    showFlexHeader = false;
+                    showFlexError = true;
+                    errorResponse = JsonSerializer.Deserialize<ErrorResponse>(captureContextDto.Ctx)!;
+                    propertyValues = PropertiesProcessor.GetProperties(errorResponse!);
+                }
+                else
+                {
+                    showFlexToken = true;
+                    showFlexHeader = true;
+                    showFlexError = false;
+                    string token = captureContextDto.Ctx!;
+                    var handler = new JwtSecurityTokenHandler();
+                    var jsonToken = handler.ReadJwtToken(token);
+                    tokenPayload = jsonToken.Payload;
 
+                }
             }
             catch (Exception ex)
             {

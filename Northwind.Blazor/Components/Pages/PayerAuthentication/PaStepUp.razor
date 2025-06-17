@@ -207,7 +207,7 @@
                     showStepUpJwt = true;
                     stepUpAuthUrl = followOnTransResponse.ConsumerAuthenticationInformation.StepUpUrl;
 
-                    string base64 = GeneralUtilities.Base64UrlToBase64(followOnTransResponse.ConsumerAuthenticationInformation.Pareq);
+                    string base64 = GeneralClientUtilities.Base64UrlToBase64(followOnTransResponse.ConsumerAuthenticationInformation.Pareq);
                     string json = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
                     jwt = followOnTransResponse.ConsumerAuthenticationInformation.AccessToken;
 
