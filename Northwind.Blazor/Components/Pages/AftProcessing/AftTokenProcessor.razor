@@ -280,7 +280,7 @@
 
             string aftReferenceNumber = GeneralClientUtilities.GenerateRandomFixedNumber(15);
 
-            aftRequestDto = await GeneralUtilities.PopulateSampleAft(aftOnly);
+            aftRequestDto = await GeneralNetworkUtilities.PopulateSampleAft(aftOnly);
 
             if (aftRequestDto.PaymentInformation == null)
                 aftRequestDto.PaymentInformation = new PaymentInformation();

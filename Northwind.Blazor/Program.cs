@@ -17,9 +17,7 @@ builder.Services.AddSingleton<ICardService, CardService>();
 builder.Services.AddHostedService<CardServiceInitializer>();
 builder.Services.AddSingleton<IConfiguration>(builder.Configuration);
 
-
 var configValues = new ConfigValues(builder.Configuration);
-
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();

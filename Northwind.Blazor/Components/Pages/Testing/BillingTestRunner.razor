@@ -50,7 +50,7 @@ else if (results.Count > 0)
 
             try
             {
-                result = await GeneralUtilities.PopulateBilling(cardService.Cards.ToList());
+                result = await GeneralNetworkUtilities.PopulateBilling(cardService.Cards.ToList());
             }
             catch (Exception ex)
             {

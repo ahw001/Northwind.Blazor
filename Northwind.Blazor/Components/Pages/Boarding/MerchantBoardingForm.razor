@@ -399,7 +399,7 @@
 
     private async void PopulateForm()
     {
-        merchantModel = await GeneralUtilities.PopulateSampleMerchant();
+        merchantModel = await GeneralNetworkUtilities.PopulateSampleMerchant();
 
         virtualTerminal = true;
         unifiedCheckout = true;

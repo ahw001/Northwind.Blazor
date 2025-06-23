@@ -1,21 +1,17 @@
-﻿using Microsoft.Extensions.Options;
-using Northwind.Blazor.Model;
+﻿using Northwind.Blazor.Model;
 using Northwind.Blazor.Model.Cybersource.BaseData;
 using Northwind.Blazor.Model.Cybersource.Transactions;
 using Northwind.Blazor.Model.DBQueries;
 using Northwind.Blazor.Model.OutboundObjects;
 using Northwind.Blazor.Services.DIServices;
 using Northwind.Blazor.Services.DTOs;
-using System.Numerics;
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 
 
 namespace Northwind.Blazor.Services.Utilities
 {
-    public static class GeneralUtilities
+    public static class GeneralNetworkUtilities 
     {
         private static string? error = null;
         private static DBSampleCustomerDatum? customer = new();
@@ -30,9 +26,6 @@ namespace Northwind.Blazor.Services.Utilities
         private static DBMerchantSampleDatum? merchantSampleDatum = new();
         private static CcTransactionTypes currentTransaction;
         private static ISessionTransactions sessionTransactions = new SessionTransactions();
-
-
-
 
         public static async Task<List<CategoryDto>> GetCategories()
         {

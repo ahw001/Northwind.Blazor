@@ -1011,7 +1011,7 @@ else
                 CustInstChecked = true;
             }
 
-            customer = await GeneralUtilities.PopulateBilling(_cardList);
+            customer = await GeneralNetworkUtilities.PopulateBilling(_cardList);
 
             if (customer == null || customer.Error is not null || customer.AccountNumber is null)
             {
@@ -1088,7 +1088,7 @@ else
 
                     int randomNumber = random.Next(0, 75);
 
-                    sampleInvoiceDetailDtos = await GeneralUtilities.GetSampleInvoices();
+                    sampleInvoiceDetailDtos = await GeneralNetworkUtilities.GetSampleInvoices();
 
                     if (cartService is not null && cartService.cart is not null)
                     {
@@ -1164,7 +1164,7 @@ else
     {
         try
         {
-            cartService = await GeneralUtilities.PopulateCart();
+            cartService = await GeneralNetworkUtilities.PopulateCart();
             if (cartService is not null && cartService?.TotalPrice is not null)
             {
                 Console.WriteLine($"Cart total = {cartService.TotalPrice}");

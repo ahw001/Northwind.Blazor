@@ -290,7 +290,7 @@
 
             string aftReferenceNumber = GeneralClientUtilities.GenerateRandomFixedNumber(15);
 
-            aftRequestDto = await GeneralUtilities.PopulateSampleAft(aftOnly);
+            aftRequestDto = await GeneralNetworkUtilities.PopulateSampleAft(aftOnly);
 
             aftRequestDto.PaymentInformation!.Card!.Number = paymentCardSampleDatumDTO.AccountNumber;
             aftRequestDto.PaymentInformation!.Card!.ExpirationMonth = paymentCardSampleDatumDTO.ExpMonth;

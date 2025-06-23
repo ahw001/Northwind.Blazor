@@ -161,7 +161,7 @@
     {
         try
         {
-            categoryList = await GeneralUtilities.GetCategories();
+            categoryList = await GeneralNetworkUtilities.GetCategories();
 
             imageDictionary.Clear();
 
@@ -192,7 +192,7 @@
     {
         try
         {
-            cartService = await GeneralUtilities.PopulateCart();
+            cartService = await GeneralNetworkUtilities.PopulateCart();
             if (cartService == null && cartService?.TotalPrice is not null)
             {
                 Console.WriteLine($"Cart total = {cartService.TotalPrice}");
